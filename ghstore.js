@@ -99,7 +99,10 @@
     C.token=tok;err.textContent='Checking…';
     try{const remote=await pull();
       if(remote&&remote.setup){S=merge(S,remote);localStorage.setItem(KEY,JSON.stringify(S))}
-      saveC();await upload();render();plainToast('Connected. Progress now saves to GitHub.')}
+      saveC();await upload();
+      // connected only if the first upload really reached GitHub; otherwise say why and stay disconnected
+      if(status.t!=='saved'){const why=status.err;C.token='';saveC();err.textContent='Could not save to GitHub: '+why;return}
+      render();plainToast('Connected. Your progress is saved in '+C.owner+'/'+C.repo+'.')}
     catch(x){C.token='';err.textContent=x.message}}}
   const _set=VIEWS.settings;VIEWS.settings=a=>{const h=_set(a);const i=h.indexOf('<section class="sheet"><h2>Papers in this copy');return i<0?h+cardHTML():h.slice(0,i)+cardHTML()+h.slice(i)};
   const _hs=HOOKS.settings;HOOKS.settings=a=>{_hs&&_hs(a);bindForm()};
@@ -114,7 +117,7 @@
     <div class="error" id="ghlerr"></div><button class="btn quiet" type="submit">Load from GitHub</button></form></section>`;
   const _hsu=HOOKS.setup;HOOKS.setup=a=>{_hsu&&_hsu(a);const f=document.getElementById('ghLoad');if(!f)return;f.onsubmit=async e=>{e.preventDefault();const err=document.getElementById('ghlerr');
     C.token=document.getElementById('ghl-tok').value.trim();err.textContent='Loading…';
-    try{const remote=await pull();if(!remote||!remote.setup)throw new Error('No Ascension progress was found in '+C.owner+'/'+C.repo+'.');
+    try{const remote=await pull();if(!remote||!remote.setup)throw new Error('The token works, but '+C.owner+'/'+C.repo+' has no progress yet. On the browser you already use, open Settings → GitHub storage, paste the token and press Connect first.');
       saveC();S=remote;S.locked=true;S.lockGap=0;localStorage.setItem(KEY,JSON.stringify(S));status={t:'saved',when:Date.now(),err:''};boot()}
     catch(x){C.token='';err.textContent=x.message}}};
   // the lock screen says "No practice for 0 days" on a new browser; say what is happening instead
