@@ -45,7 +45,9 @@
     m.days=Object.assign({},older.days||{});for(const[d,r]of Object.entries(newer.days||{})){const o=m.days[d];m.days[d]=o?Object.assign({},o,r,{secs:Math.max(o.secs||0,r.secs||0),tests:Math.max(o.tests||0,r.tests||0),done:!!(o.done||r.done)}):r}
     m.ach=Object.assign({},older.ach||{},newer.ach||{});
     m.cleared=Object.assign({},older.cleared||{},newer.cleared||{});
-    m.review=Object.assign({},newer.review||{});           // the newer device's Review list is the current one
+    // Review: both lists joined; a question cleared on either browser after it was added stays cleared
+    m.review=Object.assign({},older.review||{},newer.review||{});
+    for(const id of Object.keys(m.review)){const c=m.cleared[id];if(c&&c>=(m.review[id].added||''))delete m.review[id]}
     m.xp=Math.max(a.xp||0,b.xp||0);
     m.stats=Object.assign({},older.stats||{},newer.stats||{});
     m.updatedAt=Math.max(a.updatedAt||0,b.updatedAt||0);
@@ -66,9 +68,14 @@
   function schedule(ms){if(!on())return;clearTimeout(timer);timer=setTimeout(upload,ms)}
   // every local save also queues an upload (20 s after the last change), and a finished test uploads at once
   const _saveNow=saveNow;
-  saveNow=function(){if(S)S.updatedAt=Date.now();_saveNow();schedule(20000)};
+  saveNow=function(){if(S)S.updatedAt=Date.now();_saveNow();schedule(4000)};
   const _finish=finishTest;finishTest=function(o){const t=_finish(o);schedule(1500);return t};
   addEventListener('online',()=>schedule(1000));
+  // other browsers' changes arrive while this one is open: on returning to the tab, and every 45 s while it is in view
+  // (never in the middle of a test or practice session, which would redraw the question)
+  const idle=()=>S&&S.setup&&!S.active&&!S.practice&&!S.fxrun&&!busy;
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&idle())syncDown()});
+  setInterval(()=>{if(!document.hidden&&idle())syncDown()},45000);
   document.addEventListener('visibilitychange',()=>{if(document.hidden&&timer){clearTimeout(timer);upload()}});
 
   // ---------- on open: bring in anything newer from GitHub ----------
@@ -76,9 +83,9 @@
     if(!on()||!S||!S.setup)return;
     try{const remote=await pull();
       if(!remote){upload();return}
-      if((remote.updatedAt||0)>(S.updatedAt||0)||(remote.tests||[]).length!==(S.tests||[]).length){
+      if(remote.updatedAt!==S.updatedAt||(remote.tests||[]).length!==(S.tests||[]).length){
         const was=JSON.stringify(S);S=merge(S,remote);if(JSON.stringify(S)!==was){localStorage.setItem(KEY,JSON.stringify(S));if(!S.active&&!S.practice&&!S.fxrun)render()}}
-      if((S.updatedAt||0)>(remote.updatedAt||0))upload();
+      if(JSON.stringify(S)!==JSON.stringify(remote))upload();
       status={t:'saved',when:Date.now(),err:''};
     }catch(e){status={t:'error',when:0,err:navigator.onLine===false?'Offline. Using the copy on this device.':e.message}}
     paint();
