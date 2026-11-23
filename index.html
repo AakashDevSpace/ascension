@@ -327,6 +327,12 @@ td.num,th.num{text-align:right}
 .adv .adv-xp{color:var(--p-action);font-weight:600}
 .adv small{display:block;font-size:13px;color:var(--p-muted);line-height:1.45;margin-top:2px}
 .adv .when{color:var(--ok);font-weight:500}
+/* Legendary: a purple gradient frame round the card (padding-box keeps the card's own background, so text stays as it is) */
+:root{--legend-1:#4c1d95;--legend-2:#7c3aed;--legend-3:#c084fc;--legend-glow:rgba(124,58,237,.28)}
+.adv.tier-legendary{border:2px solid transparent;background:linear-gradient(135deg,color-mix(in srgb,var(--sheet) 92%,var(--legend-2)),var(--sheet) 60%,color-mix(in srgb,var(--sheet) 94%,var(--legend-3))) padding-box,linear-gradient(135deg,var(--legend-1),var(--legend-2) 45%,var(--legend-3)) border-box;box-shadow:0 10px 28px -14px var(--legend-glow)}
+.adv.tier-legendary.locked{border-style:solid;background:linear-gradient(var(--p-bg,var(--sheet)),var(--p-bg,var(--sheet))) padding-box,linear-gradient(135deg,var(--legend-1),var(--legend-2) 45%,var(--legend-3)) border-box;opacity:.92}
+.adv.tier-legendary .adv-xp{color:var(--legend-2)}
+#toasts .adv.tier-legendary{border:2px solid transparent;background:linear-gradient(var(--p-inv-bg),var(--p-inv-bg)) padding-box,linear-gradient(135deg,var(--legend-1),var(--legend-2) 45%,var(--legend-3)) border-box}
 .adv.locked{background:transparent;border-style:dashed;border-color:var(--line-2)}
 .adv.locked .icon{background:var(--p-surface)}
 .adv.locked b{color:var(--p-muted)}
@@ -1486,11 +1492,13 @@ const ACH=[
 const ACH_TIER={easy:['first','warm','words','trio','second','blank','noopt','tset','back','run10'],
   moderate:['hall','noblank','s360','mixed','pb','slate','foe','rev10','st3','c100','longday','pen10','owl','lark','weekend','bio100','chem100','phys100','h10','r5','double','lib'],
   hard:['s450','s540','bio90','chem90','phys90','jump','run25','eye','flaw','haul','beat','timed10','chem300','phys300','hunter','slate5','st7','st14','c500','c1000','t25','pen50','h50','secb','weekly','r10','spare','sweep','light'],
-  veryhard:['s600','s650','triple','steady','run50','bio500','rev200','st30','c2500','a5000','t50','pen150','half','h100','every','sharp','marathon'],
+  elite:['s600','s650','triple','steady','run50','bio500','rev200','st30','c2500','a5000','t50','pen150','half','h100','every','sharp','marathon'],
   legendary:['s700','s720','sky','st60','st100','whole','t100']};
-const TIER_XP={easy:10,moderate:25,hard:50,veryhard:100,legendary:250},TIER_NAME={easy:'Easy',moderate:'Moderate',hard:'Hard',veryhard:'Very hard',legendary:'Legendary'};
+const TIER_XP={easy:10,moderate:25,hard:50,elite:100,legendary:250},TIER_NAME={easy:'Easy',moderate:'Moderate',hard:'Hard',elite:'Elite',legendary:'Legendary'};
+// achievements worth more than their tier: Sky’s the Limit (a full 720 in a Mixed Real Test)
+const ACH_XP_OVERRIDE={sky:350};
 const achTier=a=>Object.keys(ACH_TIER).find(t=>ACH_TIER[t].includes(a.id))||'moderate';
-const achXP=a=>TIER_XP[achTier(a)];
+const achXP=a=>ACH_XP_OVERRIDE[a.id]||TIER_XP[achTier(a)];
 // the daily objective: a session counts toward today’s sheet with this many questions answered
 const DAILY_Q=50;
 function achDone(a){if(a.done)return a.done();const p=a.prog();return p[0]>=p[1]}
@@ -1501,7 +1509,7 @@ function checkAch(){let n=0;ACH.forEach(a=>{if(!S.ach[a.id]&&achDone(a)){S.ach[a
 function advHTML(a,unlocked,toast){
   const p=a.prog&&!unlocked&&!toast?a.prog():null;
   const hidden=a.secret&&!unlocked&&!toast;
-  return`<div class="adv ${unlocked||toast?'':'locked'}"><div class="icon">${iconSVG(a.icon)}</div><div>
+  return`<div class="adv tier-${achTier(a)} ${unlocked||toast?'':'locked'}"><div class="icon">${iconSVG(a.icon)}</div><div>
    ${toast?`<small>Achievement unlocked · +${achXP(a)} XP</small>`:''}<b>${hidden?'Hidden achievement':esc(a.name)}</b>
    <small>${hidden?'Keep practising to find this one.':esc(a.desc)}</small>${toast?'':`<small class="adv-xp">${TIER_NAME[achTier(a)]} · ${achXP(a)} XP</small>`}
    ${unlocked&&!toast?`<small class="when">Unlocked ${esc(nice(S.ach[a.id]))}</small>`:''}
@@ -2395,7 +2403,7 @@ function start(){
 }
 /* one time: achievements unlocked under the old, looser rules are checked again against the saved history.
    Ones whose history can't be recomputed (streaks, review clears, study time, time of day) are left as they are. */
-function migrateXP(){if((S.xpV||1)>=2)return;Object.keys(S.ach).forEach(id=>{const a=ACH.find(x=>x.id===id);if(a)S.xp=Math.max(0,S.xp+achXP(a)-25)});S.xpV=2;save()}
+function migrateXP(){const v=S.xpV||1;if(v>=3)return;if(v<2)Object.keys(S.ach).forEach(id=>{const a=ACH.find(x=>x.id===id);if(a)S.xp=Math.max(0,S.xp+achXP(a)-25)});else if(S.ach.sky)S.xp+=ACH_XP_OVERRIDE.sky-TIER_XP.legendary;S.xpV=3;save()}
 function migrateAch(){
   if((S.achV||1)>=2)return;
   const keep=new Set(['back','owl','lark','weekend','second','blank','slate','foe','rev10','hunter','rev200','slate5','st3','st7','st14','st30','st60','st100','h10','h50','h100','longday']);
