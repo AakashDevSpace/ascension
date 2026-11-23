@@ -94,12 +94,11 @@
   // ---------- Settings card ----------
   const ago=ms=>{const s=Math.round((Date.now()-ms)/1000);return s<60?'just now':s<3600?Math.round(s/60)+' min ago':new Date(ms).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'numeric',minute:'2-digit'})};
   function cardHTML(){
-    const st=!on()?'Not connected. Progress is kept in this browser only.':status.t==='saving'?'Saving to GitHub…':status.t==='error'?status.err:status.when?'Saved to GitHub '+ago(status.when)+'.':'Connected.';
+    const st=!on()?'':status.t==='saving'?'Saving to GitHub…':status.t==='error'?status.err:status.when?'Saved to GitHub '+ago(status.when)+'.':'Connected.';
     return`<section class="sheet" id="ghcard"><h2>GitHub storage</h2>
-     <p class="muted" style="margin:-8px 0 14px">Your progress is kept in the private repository <b>${esc(C.owner)}/${esc(C.repo)}</b>. Every upload is a commit, so earlier days can always be recovered.</p>
-     <p id="ghstat" style="margin-bottom:14px">${esc(st)}</p>
+     ${st?`<p id="ghstat" style="margin-bottom:14px">${esc(st)}</p>`:''}
      ${on()?`<div class="row"><button class="btn" data-act="ghsave">Save to GitHub now</button><button class="btn quiet" data-act="ghoff">Disconnect this browser</button></div>`
-     :`<form id="ghForm"><div class="field"><label for="gh-tok">Access token</label><input type="password" id="gh-tok" autocomplete="off" spellcheck="false" placeholder="github_pat_…" required><small>A fine-grained token with <b>Contents: read and write</b> on ${esc(C.owner)}/${esc(C.repo)} only. It stays on this device.</small></div>
+     :`<form id="ghForm"><div class="field"><label for="gh-tok">Access token</label><input type="password" id="gh-tok" autocomplete="off" spellcheck="false" placeholder="github_pat_…" required></div>
        <div class="error" id="gherr"></div><button class="btn" type="submit">Connect</button></form>`}</section>`}
   function paint(){const c=document.getElementById('ghcard');if(c&&view==='settings'){c.outerHTML=cardHTML();bindForm()}}
   function bindForm(){const f=document.getElementById('ghForm');if(!f)return;f.onsubmit=async e=>{e.preventDefault();const tok=document.getElementById('gh-tok').value.trim(),err=document.getElementById('gherr');

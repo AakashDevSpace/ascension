@@ -324,6 +324,7 @@ td.num,th.num{text-align:right}
 .adv .icon{width:56px;height:56px;border-radius:var(--r-sm);background:var(--badge-bg);display:grid;place-items:center}
 .adv .icon svg{width:36px;height:36px;image-rendering:pixelated;shape-rendering:crispEdges}
 .adv b{display:block;font-size:15px;font-weight:600;line-height:1.35}
+.adv .adv-xp{color:var(--p-action);font-weight:600}
 .adv small{display:block;font-size:13px;color:var(--p-muted);line-height:1.45;margin-top:2px}
 .adv .when{color:var(--ok);font-weight:500}
 .adv.locked{background:transparent;border-style:dashed;border-color:var(--line-2)}
@@ -1475,23 +1476,34 @@ const ACH=[
  {id:'h100',cat:'Study time',name:'Serious Scholar',desc:'Study for 100 hours in total',icon:'trophy',prog:()=>[studyHrs(),100]},
  {id:'longday',cat:'Study time',name:'The Long Day',desc:'Study for 3 hours (180 minutes) in one day',icon:'sun',prog:()=>[bestDayMin(),180]},
  {id:'back',cat:'Hidden',name:'Welcome Back!',desc:'Return after the system was paused',icon:'key',secret:true,done:()=>S.stats.comeback>0},
- {id:'owl',cat:'Hidden',name:'Night Owl',desc:'Finish a test of 10 or more answered questions after 11 pm',icon:'moon',secret:true,done:()=>S.stats.night>0},
- {id:'lark',cat:'Hidden',name:'Rise and Shine',desc:'Finish a test of 10 or more answered questions that you started before 6 am',icon:'sunrise',secret:true,done:()=>S.stats.early>0},
+ {id:'owl',cat:'Hidden',name:'Night Owl',desc:'Finish a test of 50 or more answered questions after 11 pm',icon:'moon',secret:true,done:()=>S.stats.night>0},
+ {id:'lark',cat:'Hidden',name:'Rise and Shine',desc:'Finish a test of 50 or more answered questions that you started before 6 am',icon:'sunrise',secret:true,done:()=>S.stats.early>0},
  {id:'weekend',cat:'Hidden',name:'Weekend Warrior',desc:'Finish a counted test on a Saturday and on the Sunday after it',icon:'calendar',secret:true,done:weekendPair},
  {id:'light',cat:'Hidden',name:'Lightning Round',desc:'Get every answer right in a practice of 10 or more questions, finished in under 5 minutes',icon:'storm',secret:true,done:()=>pracTests().some(t=>t.items.length>=10&&allRight(t)&&t.dur<=300)},
  {id:'s720',cat:'Hidden',name:'Perfection',desc:'Score 720 in a real test',icon:'crown',secret:true,done:()=>bestReal()>=720}
 ];
+// XP by difficulty: five tiers, harder achievements are worth more
+const ACH_TIER={easy:['first','warm','words','trio','second','blank','noopt','tset','back','run10'],
+  moderate:['hall','noblank','s360','mixed','pb','slate','foe','rev10','st3','c100','longday','pen10','owl','lark','weekend','bio100','chem100','phys100','h10','r5','double','lib'],
+  hard:['s450','s540','bio90','chem90','phys90','jump','run25','eye','flaw','haul','beat','timed10','chem300','phys300','hunter','slate5','st7','st14','c500','c1000','t25','pen50','h50','secb','weekly','r10','spare','sweep','light'],
+  veryhard:['s600','s650','triple','steady','run50','bio500','rev200','st30','c2500','a5000','t50','pen150','half','h100','every','sharp','marathon'],
+  legendary:['s700','s720','sky','st60','st100','whole','t100']};
+const TIER_XP={easy:10,moderate:25,hard:50,veryhard:100,legendary:250},TIER_NAME={easy:'Easy',moderate:'Moderate',hard:'Hard',veryhard:'Very hard',legendary:'Legendary'};
+const achTier=a=>Object.keys(ACH_TIER).find(t=>ACH_TIER[t].includes(a.id))||'moderate';
+const achXP=a=>TIER_XP[achTier(a)];
+// the daily objective: a session counts toward today’s sheet with this many questions answered
+const DAILY_Q=50;
 function achDone(a){if(a.done)return a.done();const p=a.prog();return p[0]>=p[1]}
 // after a click, achievements are checked once the new screen has painted, so the click itself is never held up
 let achT=null;function soonAch(){if(achT)return;achT=requestAnimationFrame(()=>setTimeout(()=>{achT=null;checkAch()},0))}
-function checkAch(){let n=0;ACH.forEach(a=>{if(!S.ach[a.id]&&achDone(a)){S.ach[a.id]=today();S.xp+=25;if(++n<=3)advToast(a)}});
+function checkAch(){let n=0;ACH.forEach(a=>{if(!S.ach[a.id]&&achDone(a)){S.ach[a.id]=today();S.xp+=achXP(a);if(++n<=3)advToast(a)}});
   if(n>3)plainToast(`${n-3} more achievements unlocked. See them all in Achievements.`);save()}
 function advHTML(a,unlocked,toast){
   const p=a.prog&&!unlocked&&!toast?a.prog():null;
   const hidden=a.secret&&!unlocked&&!toast;
   return`<div class="adv ${unlocked||toast?'':'locked'}"><div class="icon">${iconSVG(a.icon)}</div><div>
-   ${toast?'<small>Achievement unlocked</small>':''}<b>${hidden?'Hidden achievement':esc(a.name)}</b>
-   <small>${hidden?'Keep practising to find this one.':esc(a.desc)}</small>
+   ${toast?`<small>Achievement unlocked · +${achXP(a)} XP</small>`:''}<b>${hidden?'Hidden achievement':esc(a.name)}</b>
+   <small>${hidden?'Keep practising to find this one.':esc(a.desc)}</small>${toast?'':`<small class="adv-xp">${TIER_NAME[achTier(a)]} · ${achXP(a)} XP</small>`}
    ${unlocked&&!toast?`<small class="when">Unlocked ${esc(nice(S.ach[a.id]))}</small>`:''}
    ${p?`<div class="advbar"><i style="width:${Math.min(100,p[0]/p[1]*100)}%"></i></div><small>${fmt(Math.min(p[0],p[1]))} of ${fmt(p[1])}</small>`:''}</div></div>`}
 function advToast(a){const el=document.createElement('div');el.innerHTML=advHTML(a,true,true);const n=el.firstChild;$('#toasts').appendChild(n);setTimeout(()=>n.remove(),5200)}
@@ -1557,7 +1569,7 @@ function navHTML(){
   const it=(v,l,sh,c,x)=>`<button class="navbtn${x?' nav-extra':''}" data-act="go" data-v="${v}" ${cur(v)?'aria-current="page"':''}><span class="ic">${svg(v)}</span><span class="l-full">${l}</span><span class="l-short">${sh}</span>${c?`<span class="count">${c}</span>`:''}</button>`;
   const ib=(v,l)=>`<button class="iconbtn" data-act="go" data-v="${v}" aria-label="${l}" title="${l}" ${view===v?'aria-current="page"':''}>${svg(v)}</button>`;
   return`<div class="brand"><span class="mark" data-mark="stack"></span><b>Ascension</b></div>
-   <button class="cmdk" data-act="cmdk" aria-label="Search and jump (${MOD} K)">${svg('search')}<span>Jump to…</span><kbd>${MOD} K</kbd></button>
+   <button class="cmdk" data-act="cmdk" aria-label="Search and jump (${MOD} K)">${svg('search')}<span>Jump to…</span></button>
    <div class="mtop"><div class="brand-sm"><span class="mark" data-mark="stack"></span><b>Ascension</b></div><span class="lvl-chip">Level ${lv}</span>${themeBtn()}${ib('achievements','Achievements')}${ib('settings','Settings')}</div>
    <div class="navlist">${it('today','Today','Today')}${it('real','Real test','Test')}${it('practice','Practice','Practice')}${it('review','Review','Review',rc||'')}${it('formulas','Formulas','Formulas')}${it('dashboard','Dashboard','Stats')}${it('achievements','Achievements','Awards','',1)}${it('settings','Settings','Settings','',1)}</div>
    <div class="nav-foot">
@@ -1607,7 +1619,7 @@ document.addEventListener('input',e=>{const w=e.target.closest&&e.target.closest
 document.addEventListener('reset',e=>setTimeout(()=>e.target.querySelectorAll('.pwf').forEach(w=>{pwShow(w.querySelector('.pwf-eye'),false);pwSync(w)})));
 
 /* ===================== setup & lock ===================== */
-VIEWS.setup=()=>`<div class="brand gate-brand"><span class="mark" data-mark="stack"></span><b>Ascension</b></div><header class="page-head"><h1>Set up Ascension</h1><p>A practice room for NEET past papers. Everything stays in this browser on this computer.</p></header>
+VIEWS.setup=()=>`<div class="brand gate-brand"><span class="mark" data-mark="stack"></span><b>Ascension</b></div><header class="page-head"><h1>Set up Ascension</h1></header>
  <form class="sheet" id="setupForm">
   <div class="field"><label for="su-name">Who is practising?</label><input type="text" id="su-name" autocomplete="off" required></div>
   <div class="field"><label for="su-pw">Unlock password</label>${pwField('su-pw',{strength:1,ac:'new-password',req:1})}<small>If Ascension goes unopened for three days in a row, it pauses until this password is entered.</small></div>
@@ -1634,7 +1646,7 @@ VIEWS.today=()=>{
   const last=S.tests.slice(-3).reverse();
   return`<header class="page-head"><span class="eyebrow">${new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long'})}</span><h1>${greet}, ${esc(S.setup.name)}</h1><p>${d.done?'Today’s sheet is done. Anything more is extra credit.':'Two bubbles to fill today: one test, and an empty Review tab.'}</p></header>${todayTop()}
   <section class="sheet ${d.done?'is-done':''}"><h2>Today’s sheet</h2>
-   <div class="omr-row"><span class="bub ${d.tests?'filled':''}"></span><div><b>Finish one test</b><span>Real or practice, with 10 or more questions answered. ${d.tests?plural(d.tests,'test')+' finished today.':'None yet today.'}</span></div><button class="btn ${d.tests?'ghost':''}" data-act="go" data-v="practice">Start a practice test</button></div>
+   <div class="omr-row"><span class="bub ${d.tests?'filled':''}"></span><div><b>Finish one test</b><span>Real or practice, with ${DAILY_Q} or more questions answered. ${d.tests?plural(d.tests,'test')+' finished today.':'None yet today.'}</span></div><button class="btn ${d.tests?'ghost':''}" data-act="go" data-v="practice">Start a practice test</button></div>
    <div class="omr-row"><span class="bub ${rc===0?'filled':''}"></span><div><b>Clear the Review tab</b><span>${rc?plural(rc,'question')+' waiting from earlier mistakes and skips.':'Nothing waiting.'}</span></div>${rc?'<button class="btn" data-act="go" data-v="review">Open Review</button>':''}</div>
   </section>
   <div class="split"><section class="sheet"><h2>Streak</h2><p class="streak-line"><b>${st}</b> ${st===1?'day':'days'} in a row${bestStreak()>st?`, best ${bestStreak()}`:''}</p><div class="strip">${strip}</div>
@@ -1759,13 +1771,13 @@ function finishTest(o){
     ...(o.tmin?{tmin:o.tmin,beat:!!o.beat}:{}),...(o.revisit?{revisit:1}:{}),
     rank:o.kind==='real'&&counted===180&&!((o.pids||[]).length===1&&PAPERS[o.pids[0]]&&PAPERS[o.pids[0]].norank)?rankFor(years,score):null};
   S.tests.push(t);
-  // a session counts as a test (today's sheet, streaks, test XP, time-of-day achievements) only with 10 or more answered
-  const counts=o.kind!=='review'&&!o.revisit&&c+w>=10;
+  // a session counts as a test (today's sheet, streaks, test XP, time-of-day achievements) only with DAILY_Q or more answered
+  const counts=o.kind!=='review'&&!o.revisit&&c+w>=DAILY_Q;
   const d=dayRec();if(counts)d.tests++;d.answered+=c+w;d.correct+=c;
   S.xp+=counts?(o.kind==='real'?60:20):(o.kind==='review'&&c+w>0?10:0);
   if(counts&&new Date().getHours()>=23)S.stats.night++;
   if(counts&&o.early)S.stats.early++;
-  if(o.kind!=='review'&&!o.revisit&&!counts)plainToast('Fewer than 10 questions were answered, so this session doesn’t count as a test for today’s sheet or achievements.');
+  if(o.kind!=='review'&&!o.revisit&&!counts)plainToast(`Fewer than ${DAILY_Q} questions were answered, so this session doesn’t count toward today’s sheet.`);
   checkDay();return t;
 }
 
@@ -1965,7 +1977,7 @@ VIEWS.review=a=>{
   const head=`<header class="page-head"><h1>Review</h1><p>Every question answered wrong or skipped lands here. Answer it right to clear it. Clearing the tab fills today’s second bubble.</p></header>`;
   const pastBtn=past.length?`<button class="btn quiet" data-act="rvpast">Revisit ${Math.min(20,past.length)} cleared</button>`:'';
   if(!n)return`${head}<section class="rv-empty"><div class="rv-empty-ic">${iconSVG('star')}</div><h2>Nothing to review</h2>
-    <p class="muted">Every mistake is cleared. Wrong and skipped questions from real tests and practice will land here.</p>
+    <p class="muted">Every mistakes are cleared.</p>
     <div class="row" style="justify-content:center;margin-top:20px"><button class="btn" data-act="go" data-v="practice">Start a practice test</button>${pastBtn}</div></section>`;
   const cnt={P:0,C:0,B:0};ids.forEach(id=>cnt[QS[id].s]++);
   const wrongN=ids.filter(id=>S.review[id].wrong).length,skipN=ids.filter(id=>S.review[id].skip).length;
@@ -2331,7 +2343,7 @@ VIEWS.dashboard=()=>{
   <section class="sheet"><h2>Real test scores</h2>${scoreChart(reals)}</section>
   <div class="split"><section class="sheet"><h2>Accuracy by subject</h2><div class="bars">${bars}</div>
      <p class="muted" style="margin-top:14px;font-size:13px">Average time per question: ${['B','C','P'].map(s=>{const n=all.reduce((a,t)=>a+t.items.filter(it=>QS[it.id]&&QS[it.id].s===s).length,0);return`${SUBJ[s]} ${n?Math.round(sub[s].tm/n):'–'}s`}).join(', ')}.</p></section>
-   <section class="sheet"><h2>Last 12 weeks</h2><div class="cal" aria-label="Practice calendar">${cal}</div><p class="muted" style="margin-top:12px;font-size:13px">Filled: complete day. Half: a test, but Review not cleared. Columns are weeks, Sunday at the top.</p></section></div>
+   <section class="sheet"><h2>Last 12 weeks</h2><div class="cal" aria-label="Practice calendar">${cal}</div></section></div>
   <section class="sheet" style="margin-top:18px"><h2>Recent tests</h2>${recent.length?`<table><tr><th>Test</th><th>Date</th><th class="num">Score</th><th class="num">Right</th><th class="num">Wrong</th><th class="num">Rank range</th></tr>${recent.map(t=>`<tr><td><a href="#" data-act="go" data-v="results" data-arg="${t.id}">${esc(t.label)}</a></td><td>${nice(t.day)}</td><td class="num">${t.score} / ${t.max}</td><td class="num">${t.correct}</td><td class="num">${t.wrong}</td><td class="num">${t.rank&&!t.rank.below?fmt(t.rank.lo)+' to '+fmt(t.rank.hi):'–'}</td></tr>`).join('')}</table>`:'<p class="muted">Finished tests are listed here.</p>'}</section>
   <section class="sheet"><h2>Achievements</h2><p>${Object.keys(S.ach).length} of ${ACH.length} unlocked. Level ${level()}, ${fmt(S.xp)} XP.</p><div class="row" style="margin-top:12px"><button class="btn quiet" data-act="go" data-v="achievements">Open achievements</button></div></section>`;
 };
@@ -2349,21 +2361,20 @@ document.addEventListener('mousemove',e=>{const t=e.target.closest&&e.target.clo
 /* ===================== achievements view ===================== */
 VIEWS.achievements=()=>{
   const cats=[...new Set(ACH.map(a=>a.cat))];
-  return`<header class="page-head"><h1>Achievements</h1><p>${Object.keys(S.ach).length} of ${ACH.length} unlocked. Each one is worth 25 XP.</p></header>
+  return`<header class="page-head"><h1>Achievements</h1><p>${Object.keys(S.ach).length} of ${ACH.length} unlocked.</p></header>
   ${cats.map(c=>`<section class="adv-cat"><h2>${c}</h2><div class="adv-grid">${ACH.filter(a=>a.cat===c).map(a=>advHTML(a,!!S.ach[a.id])).join('')}</div></section>`).join('')}`;
 };
 
 /* ===================== settings ===================== */
 VIEWS.settings=()=>`<header class="page-head"><h1>Settings</h1><p>Comfort for long sessions, your backup, and your learner details.</p></header>${appearanceHTML()}
- <section class="sheet"><h2>Backup</h2><p>Progress lives only in this browser. Clearing browsing data erases it, so save a backup file now and then.</p>
-  <div class="row" style="margin-top:14px"><button class="btn" data-act="export">Save backup file</button><label class="btn quiet" for="imp">Restore from a backup file</label><input type="file" id="imp" accept=".json,application/json" hidden></div>
+ <section class="sheet"><h2>Backup</h2>  <div class="row" style="margin-top:14px"><button class="btn" data-act="export">Save progress backup</button><label class="btn quiet" for="imp">Restore from a backup file</label><input type="file" id="imp" accept=".json,application/json" hidden></div>
   <p class="muted" style="margin-top:10px;font-size:13px">${S.lastBackup?'Last backup '+nice(S.lastBackup)+'.':'No backup saved yet.'}</p><div class="error" id="imperr"></div></section>
  <section class="sheet"><h2>Learner</h2><form id="nameForm" class="row"><input type="text" id="nm" value="${esc(S.setup.name)}" style="max-width:280px"><button class="btn quiet" type="submit">Save name</button></form></section>
  <section class="sheet"><h2>Unlock password</h2><form id="pwForm"><div class="field"><label for="pw0">Current password</label>${pwField('pw0')}</div><div class="field"><label for="pw1">New password</label>${pwField('pw1',{strength:1,ac:'new-password'})}</div><button class="btn quiet" type="submit">Change password</button><div class="error" id="pwerr"></div></form></section>
  <section class="sheet"><h2>Papers in this copy</h2><table><tr><th>Paper</th><th>Code</th><th class="num">Questions</th><th class="num">Answer Writing</th></tr>${DATA.papers.map(p=>`<tr><td>${esc(p.label)}</td><td>${esc(p.code)}</td><td class="num">${p.questions.length}</td><td class="num">${p.questions.filter(q=>q.t).length}</td></tr>`).join('')}</table>
   ${MOCKP.length?`<h3 class="grp-h" style="margin-top:22px">Mock Tests</h3><table><tr><th>Set</th><th>Held</th><th class="num">Questions</th><th class="num">Answer Writing</th></tr>${MOCKP.map(p=>`<tr><td>${esc(p.label)}</td><td>${p.date?nice(p.date):''}</td><td class="num">${p.questions.length}</td><td class="num">${p.questions.filter(q=>q.t).length}</td></tr>`).join('')}</table>`:''}</section>
  <section class="sheet"><h2>Start over</h2><p>Deletes every test, streak and achievement in this browser. Needs the password.</p><form id="rsForm" class="row" style="margin-top:12px">${pwField('rspw',{ph:'Password',style:'max-width:260px;flex:1'})}<button class="btn danger" type="submit">Delete all progress</button></form><div class="error" id="rserr"></div></section>
- <p class="muted" style="font-size:12.5px;margin:4px 0 24px">The timer and password fields follow the Duration Picker and Password Input designs from <a href="https://www.rareui.com" target="_blank" rel="noopener">Rare UI</a>, rebuilt here without outside code.</p>`;
+ `;
 HOOKS.settings=()=>{
   $('#nameForm').onsubmit=e=>{e.preventDefault();const v=$('#nm').value.trim();if(v){S.setup.name=v;save();plainToast('Name saved.')}};
   $('#pwForm').onsubmit=e=>{e.preventDefault();if(pwHash($('#pw0').value,S.setup.salt)!==S.setup.hash)return $('#pwerr').textContent='The current password doesn’t match.';if($('#pw1').value.length<4)return $('#pwerr').textContent='Use at least 4 characters.';S.setup.hash=pwHash($('#pw1').value,S.setup.salt);save();$('#pwerr').textContent='';plainToast('Password changed.');$('#pwForm').reset()};
@@ -2384,10 +2395,11 @@ function start(){
 }
 /* one time: achievements unlocked under the old, looser rules are checked again against the saved history.
    Ones whose history can't be recomputed (streaks, review clears, study time, time of day) are left as they are. */
+function migrateXP(){if((S.xpV||1)>=2)return;Object.keys(S.ach).forEach(id=>{const a=ACH.find(x=>x.id===id);if(a)S.xp=Math.max(0,S.xp+achXP(a)-25)});S.xpV=2;save()}
 function migrateAch(){
   if((S.achV||1)>=2)return;
   const keep=new Set(['back','owl','lark','weekend','second','blank','slate','foe','rev10','hunter','rev200','slate5','st3','st7','st14','st30','st60','st100','h10','h50','h100','longday']);
-  ACH.forEach(a=>{if(S.ach[a.id]&&!keep.has(a.id)&&!achDone(a)){delete S.ach[a.id];S.xp=Math.max(0,S.xp-25)}});
+  ACH.forEach(a=>{if(S.ach[a.id]&&!keep.has(a.id)&&!achDone(a)){delete S.ach[a.id];S.xp=Math.max(0,S.xp-achXP(a))}});
   S.achV=2;save();   // silent: no message on opening the app
 }
 function boot(){
@@ -2395,7 +2407,7 @@ function boot(){
   // site data), keep the profile already in memory instead of reading back an empty one and asking again
   if(saveT)saveNow();const L=load();S=(!L.setup&&S&&S.setup)?S:L;
   if(!S.setup)return go('setup');
-  migrateAch();
+  migrateAch();migrateXP();
   const t=today(),gap=S.lastActive?ddiff(S.lastActive,t)-1:0;
   if(S.locked||(gap>=3&&!S.active)){if(!S.locked){S.locked=true;S.lockGap=gap;save()}view='today';render();return showLock(S.lockGap||gap)}
   start();soonAch();
