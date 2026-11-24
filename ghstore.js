@@ -116,19 +116,9 @@
   ACT.ghoff=()=>modal(`<h2>Disconnect this browser?</h2><p>Progress stays on GitHub and in this browser, but this browser stops uploading until you connect again.</p><div class="row"><button class="btn" data-act="ghoffok">Disconnect</button><button class="btn quiet" data-act="close">Cancel</button></div>`);
   ACT.ghoffok=()=>{closeModal();C.token='';saveC();status={t:'',when:0,err:''};render()};
 
-  // ---------- setup screen on a new browser: load the profile instead of starting over ----------
-  const _setup=VIEWS.setup;VIEWS.setup=a=>_setup(a)+`<section class="sheet" style="margin-top:18px"><h2>Already using Ascension?</h2>
-    <p class="muted" style="margin:-8px 0 14px">Load your progress from GitHub. You will be asked for your unlock password next.</p>
-    <form id="ghLoad"><div class="field"><label for="ghl-tok">Access token</label><input type="password" id="ghl-tok" autocomplete="off" spellcheck="false" placeholder="github_pat_…" required></div>
-    <div class="error" id="ghlerr"></div><button class="btn quiet" type="submit">Load from GitHub</button></form></section>`;
-  const _hsu=HOOKS.setup;HOOKS.setup=a=>{_hsu&&_hsu(a);const f=document.getElementById('ghLoad');if(!f)return;f.onsubmit=async e=>{e.preventDefault();const err=document.getElementById('ghlerr');
-    C.token=document.getElementById('ghl-tok').value.trim();err.textContent='Loading…';
-    try{const remote=await pull();if(!remote||!remote.setup)throw new Error('The token works, but '+C.owner+'/'+C.repo+' has no progress yet. On the browser you already use, open Settings → GitHub storage, paste the token and press Connect first.');
-      saveC();S=remote;S.locked=true;S.lockGap=0;localStorage.setItem(KEY,JSON.stringify(S));status={t:'saved',when:Date.now(),err:''};boot()}
-    catch(x){C.token='';err.textContent=x.message}}};
   // the lock screen says "No practice for 0 days" on a new browser; say what is happening instead
   const _lock=showLock;showLock=gap=>{_lock(gap);if(!gap){const p=document.querySelector('#modal p');if(p)p.textContent='Progress loaded from GitHub. Enter your unlock password to open it on this browser.'}};
 
   // a setup screen already on view (new browser) gets the GitHub form; an open profile checks GitHub for newer progress
-  if(view==='setup')render();else syncDown();
+  if(view!=='setup')syncDown();
 })();

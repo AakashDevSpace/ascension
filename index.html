@@ -1671,13 +1671,15 @@ document.addEventListener('reset',e=>setTimeout(()=>e.target.querySelectorAll('.
 VIEWS.setup=()=>`<div class="gate-logo"><span class="mark" data-mark="stack" role="img" aria-label="Ascension"></span></div><header class="page-head"><h1>Set up Ascension</h1></header>
  <form class="sheet" id="setupForm">
   <div class="field"><label for="su-name">Who is practising?</label><input type="text" id="su-name" autocomplete="off" required></div>
-  <div class="field"><label for="su-pw">Unlock password</label>${pwField('su-pw',{strength:1,ac:'new-password',req:1})}<small>If Ascension goes unopened for three days in a row, it pauses until this password is entered.</small></div>
-  <div class="field"><label for="su-pw2">Type the password again</label>${pwField('su-pw2',{ac:'new-password',req:1})}</div>
+  <div class="field"><label for="su-pw">Master Password</label>${pwField('su-pw',{ac:'current-password',req:1})}</div>
   <div class="error" id="su-err"></div>
   <button class="btn" type="submit">Start practising</button></form>`;
-HOOKS.setup=()=>{$('#setupForm').onsubmit=e=>{e.preventDefault();const n=$('#su-name').value.trim(),a=$('#su-pw').value,b=$('#su-pw2').value;
-  if(!n)return $('#su-err').textContent='Enter a name.';if(a.length<4)return $('#su-err').textContent='Use at least 4 characters for the password.';if(a!==b)return $('#su-err').textContent='The two passwords don’t match.';
-  const salt=Math.random().toString(36).slice(2);S.setup={name:n,salt,hash:pwHash(a,salt),created:today()};S.lastActive=today();saveNow();boot()}};
+// One Master Password opens Ascension on every browser; only its hash is kept here. It becomes the unlock password,
+// which can be changed later in Settings.
+const MASTER_SALT='ascension-master',MASTER_HASH='cuqyrvg2id25touh9wivs';
+HOOKS.setup=()=>{$('#setupForm').onsubmit=e=>{e.preventDefault();const n=$('#su-name').value.trim(),a=$('#su-pw').value;
+  if(!n)return $('#su-err').textContent='Enter a name.';if(pwHash(a,MASTER_SALT)!==MASTER_HASH)return $('#su-err').textContent='That is not the Master Password.';
+  S.setup={name:n,salt:MASTER_SALT,hash:MASTER_HASH,created:today()};S.lastActive=today();saveNow();boot()}};
 VIEWS.lock=()=>'';
 function showLock(gap){
   document.body.classList.add('locked');
