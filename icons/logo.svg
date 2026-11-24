@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Ascension mark: three bars climbing to a filled OMR bubble — scores rising to the answer you nailed -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1e1b4b"/>
+      <stop offset=".55" stop-color="#4c1d95"/>
+      <stop offset="1" stop-color="#7c3aed"/>
+    </linearGradient>
+    <radialGradient id="glow" cx=".76" cy=".22" r=".55">
+      <stop offset="0" stop-color="#fbbf24" stop-opacity=".45"/>
+      <stop offset=".45" stop-color="#f472b6" stop-opacity=".12"/>
+      <stop offset="1" stop-color="#7c3aed" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="bar" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#c4b5fd"/>
+      <stop offset="1" stop-color="#ffffff"/>
+    </linearGradient>
+    <linearGradient id="bar3" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#e9d5ff"/>
+      <stop offset="1" stop-color="#ffffff"/>
+    </linearGradient>
+    <radialGradient id="gold" cx=".38" cy=".32" r=".75">
+      <stop offset="0" stop-color="#fff7cc"/>
+      <stop offset=".35" stop-color="#fcd34d"/>
+      <stop offset="1" stop-color="#f59e0b"/>
+    </radialGradient>
+    <radialGradient id="halo" cx=".5" cy=".5" r=".5">
+      <stop offset="0" stop-color="#fde68a" stop-opacity=".7"/>
+      <stop offset="1" stop-color="#fde68a" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".18"/>
+      <stop offset=".5" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <clipPath id="tile"><rect width="512" height="512" rx="116"/></clipPath>
+  </defs>
+  <g clip-path="url(#tile)">
+    <rect width="512" height="512" fill="url(#bg)"/>
+    <rect width="512" height="512" fill="url(#glow)"/>
+    <!-- faint OMR answer grid -->
+    <g fill="none" stroke="#ffffff" stroke-opacity=".08" stroke-width="5">
+      <circle cx="78" cy="96" r="18"/><circle cx="130" cy="96" r="18"/><circle cx="182" cy="96" r="18"/><circle cx="234" cy="96" r="18"/>
+      <circle cx="78" cy="150" r="18"/><circle cx="130" cy="150" r="18"/><circle cx="182" cy="150" r="18"/><circle cx="234" cy="150" r="18"/>
+      <circle cx="78" cy="204" r="18"/><circle cx="130" cy="204" r="18"/>
+    </g>
+    <rect width="512" height="512" fill="url(#sheen)"/>
+    <!-- rising trajectory -->
+    <path d="M128 286 C 190 250, 250 214, 330 150" fill="none" stroke="#fde68a" stroke-opacity=".55" stroke-width="10" stroke-linecap="round" stroke-dasharray="2 22"/>
+    <!-- the climb -->
+    <rect x="96" y="318" width="76" height="110" rx="38" fill="url(#bar)" opacity=".82"/>
+    <rect x="214" y="246" width="76" height="182" rx="38" fill="url(#bar)" opacity=".92"/>
+    <rect x="332" y="190" width="76" height="238" rx="38" fill="url(#bar3)"/>
+    <!-- the filled bubble at the summit -->
+    <circle cx="370" cy="118" r="78" fill="url(#halo)"/>
+    <circle cx="370" cy="118" r="46" fill="url(#gold)"/>
+    <circle cx="370" cy="118" r="46" fill="none" stroke="#ffffff" stroke-opacity=".7" stroke-width="5"/>
+    <ellipse cx="356" cy="100" rx="15" ry="9" fill="#ffffff" fill-opacity=".75" transform="rotate(-30 356 100)"/>
+  </g>
+  <rect x="2" y="2" width="508" height="508" rx="114" fill="none" stroke="#ffffff" stroke-opacity=".14" stroke-width="4"/>
+</svg>
