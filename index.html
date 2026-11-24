@@ -820,6 +820,12 @@ kbd{display:inline-block;min-width:22px;text-align:center;font:500 11.5px/1 var(
 .pstrip i.c{background:var(--ok)}.pstrip i.w{background:var(--bad)}.pstrip i.s{background:var(--skip)}
 .pstrip i.cur{background:var(--p-ink)}
 body.focus #nav{display:none}
+/* the sidebar can be hidden on wide screens; a small button at the top left brings it back */
+.brand .nav-hide{margin-left:auto}
+#navopen{display:none;position:fixed;top:18px;left:18px;z-index:30;background:var(--sheet);border:1px solid var(--line);box-shadow:var(--sh-1)}
+@media (min-width:901px){html[data-navc] #nav{display:none}html[data-navc] #app{grid-template-columns:minmax(0,1fr)}
+  html[data-navc] body[data-mode=app]:not(.focus) #navopen{display:grid}}
+@media (max-width:900px){.brand .nav-hide{display:none}}
 body.focus #app{grid-template-columns:minmax(0,1fr)}
 body.focus #main{max-width:880px;padding-top:40px}
 @media (prefers-reduced-motion:no-preference){
@@ -1231,7 +1237,12 @@ function gradeOne(ans,text){
   const prec=tc.length?tc.filter(w=>tokMatch(w,mc)||content.some(m=>m.includes(w)&&w.length>=3)).length/tc.length:0;
   const f1=cover+prec?2*cover*prec/(cover+prec):0;
   const sim=Math.max(charR,f1);
-  return{pass:typed.length>0&&miss.length===0&&extra.length===0&&sim>=0.8,hit,miss:miss.concat(extra.map(w=>'not '+w)),sim:Math.round(sim*100)};
+  // the Match shown is the share of the answer's key terms you wrote, less any number that contradicts it; a shared
+  // unit or filler word ("cm", "the") no longer counts as half a match
+  const shown=kw.length?Math.max(0,hit.length-extra.length)/(kw.length):sim;
+  // every key term written and nothing contradicting it: a left-out unit ("cm", "J") or filler word does not fail the answer
+  const leftOut=content.filter(w=>!tokMatch(w,cand)),onlyUnits=kw.length>0&&leftOut.every(w=>!isNum(w)&&w.length<=3);
+  return{pass:typed.length>0&&miss.length===0&&extra.length===0&&(sim>=0.8||onlyUnits),hit,miss:miss.concat(extra.map(w=>'not '+w)),sim:Math.round(shown*100)};
 }
 function gradeTyped(q,text){
   const ans=q.o[correctSet(q)[0]-1]||'';
@@ -1403,6 +1414,13 @@ function sharpEye(){const l=TS().last;return l.length>=200&&l.reduce((a,b)=>a+b,
 const studyHrs=()=>Math.floor(Object.values(S.days).reduce((a,d)=>a+(d.secs||0),0)/3600);
 const bestDayMin=()=>Math.floor(Math.max(0,...Object.values(S.days).map(d=>d.secs||0))/60);
 function weekendPair(){return Object.keys(S.days).some(d=>{const[y,m,dd]=d.split('-').map(Number);return new Date(y,m-1,dd).getDay()===6&&S.days[d].tests>0&&(S.days[addDays(d,1)]||{}).tests>0})}
+// Formula achievements read S.formulas
+const fxF=()=>S.formulas||{};
+const fxRight=()=>Object.values(fxF().st||{}).filter(x=>x.c>0).length;
+const fxBank=()=>{const Q=window.FXQ||{};return Object.values(Q).reduce((a,l)=>a+l.length,0)};
+const fxSessions=()=>Math.max(fxF().n||0,(fxF().runs||[]).filter(t=>t.c+t.w>=10).length);
+const fxTests=()=>Math.max(fxF().tests||0,(fxF().runs||[]).filter(t=>t.mode==='test'&&t.c+t.w>=10).length);
+function fxSheetDone(){const Q=window.FXQ||{},st=fxF().st||{};return Object.keys(Q).some(sid=>Q[sid].length&&Q[sid].every((_,i)=>st[sid+'-'+i]&&st[sid+'-'+i].c>0))}
 const LIB=()=>Object.values(QS).filter(q=>!isMock(q.pid)).length;
 const ACH=[
  {id:'first',cat:'Getting started',name:'Fresh Ink',desc:'Finish your first test of 10 or more answered questions',icon:'pen',done:()=>countedTests().length>0},
@@ -1484,6 +1502,16 @@ const ACH=[
  {id:'h50',cat:'Study time',name:'Burning the Candle',desc:'Study for 50 hours in total',icon:'candle',prog:()=>[studyHrs(),50]},
  {id:'h100',cat:'Study time',name:'Serious Scholar',desc:'Study for 100 hours in total',icon:'trophy',prog:()=>[studyHrs(),100]},
  {id:'longday',cat:'Study time',name:'The Long Day',desc:'Study for 3 hours (180 minutes) in one day',icon:'sun',prog:()=>[bestDayMin(),180]},
+ {id:'fx1',cat:'Formulas',name:'First Formula',desc:'Finish a formula session with 10 or more answered',icon:'pen',prog:()=>[fxSessions(),1]},
+ {id:'fxtest',cat:'Formulas',name:'Formula Exam',desc:'Finish a formula test with 10 or more answered',icon:'stopwatch',prog:()=>[fxTests(),1]},
+ {id:'fx50',cat:'Formulas',name:'Formula Fluent',desc:'Get 50 different formulas right',icon:'flask',prog:()=>[fxRight(),50]},
+ {id:'fx10s',cat:'Formulas',name:'Formula Habit',desc:'Finish 10 formula sessions of 10 or more answered',icon:'gear',prog:()=>[fxSessions(),10]},
+ {id:'fxfix',cat:'Formulas',name:'Gaps Closed',desc:'Get 25 formulas right that you had missed before',icon:'check',prog:()=>[fxF().cleared||0,25]},
+ {id:'fx250',cat:'Formulas',name:'Equation Engine',desc:'Get 250 different formulas right',icon:'atom',prog:()=>[fxRight(),250]},
+ {id:'fxflaw',cat:'Formulas',name:'Flawless Recall',desc:'Finish a formula session of 20 or more with every answer right',icon:'gem',prog:()=>[fxF().perfect||0,1]},
+ {id:'fxsheet',cat:'Formulas',name:'Sheet Cleared',desc:'Get every formula on one sheet right at least once',icon:'scroll',done:fxSheetDone},
+ {id:'fx1000',cat:'Formulas',name:'Walking Handbook',desc:'Get 1,000 different formulas right',icon:'book',prog:()=>[fxRight(),1000]},
+ {id:'fxall',cat:'Formulas',name:'Formula Master',desc:'Get every formula in the bank right at least once',icon:'crown',prog:()=>[fxRight(),Math.max(1,fxBank())]},
  {id:'back',cat:'Hidden',name:'Welcome Back!',desc:'Return after the system was paused',icon:'key',secret:true,done:()=>S.stats.comeback>0},
  {id:'owl',cat:'Hidden',name:'Night Owl',desc:'Finish a test of 50 or more answered questions after 11 pm',icon:'moon',secret:true,done:()=>S.stats.night>0},
  {id:'lark',cat:'Hidden',name:'Rise and Shine',desc:'Finish a test of 50 or more answered questions that you started before 6 am',icon:'sunrise',secret:true,done:()=>S.stats.early>0},
@@ -1492,11 +1520,11 @@ const ACH=[
  {id:'s720',cat:'Hidden',name:'Perfection',desc:'Score 720 in a real test',icon:'crown',secret:true,done:()=>bestReal()>=720}
 ];
 // XP by difficulty: five tiers, harder achievements are worth more
-const ACH_TIER={easy:['first','warm','words','trio','second','blank','noopt','tset','back','run10'],
-  moderate:['hall','noblank','s360','mixed','pb','slate','foe','rev10','st3','c100','longday','pen10','owl','lark','weekend','bio100','chem100','phys100','h10','r5','double','lib'],
-  hard:['s450','s540','bio90','chem90','phys90','jump','run25','eye','flaw','haul','beat','timed10','chem300','phys300','hunter','slate5','st7','st14','c500','c1000','t25','pen50','h50','secb','weekly','r10','spare','sweep','light'],
-  elite:['s600','s650','triple','steady','run50','bio500','rev200','st30','c2500','a5000','t50','pen150','half','h100','every','sharp','marathon'],
-  legendary:['s700','s720','sky','st60','st100','whole','t100']};
+const ACH_TIER={easy:['fx1','first','warm','words','trio','second','blank','noopt','tset','back','run10'],
+  moderate:['fxtest','fx50','fx10s','fxfix','hall','noblank','s360','mixed','pb','slate','foe','rev10','st3','c100','longday','pen10','owl','lark','weekend','bio100','chem100','phys100','h10','r5','double','lib'],
+  hard:['fx250','fxflaw','fxsheet','s450','s540','bio90','chem90','phys90','jump','run25','eye','flaw','haul','beat','timed10','chem300','phys300','hunter','slate5','st7','st14','c500','c1000','t25','pen50','h50','secb','weekly','r10','spare','sweep','light'],
+  elite:['fx1000','s600','s650','triple','steady','run50','bio500','rev200','st30','c2500','a5000','t50','pen150','half','h100','every','sharp','marathon'],
+  legendary:['fxall','s700','s720','sky','st60','st100','whole','t100']};
 const TIER_XP={easy:10,moderate:25,hard:50,elite:100,legendary:250},TIER_NAME={easy:'Easy',moderate:'Moderate',hard:'Hard',elite:'Elite',legendary:'Legendary'};
 // achievements worth more than their tier: Sky’s the Limit (a full 720 in a Mixed Real Test)
 const ACH_XP_OVERRIDE={sky:350};
@@ -1571,7 +1599,8 @@ const IC={
   star:'<path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8L3.5 9.7l5.9-.9L12 3.5Z"/>',
   arrow:'<path d="M5 12h14M13 6l6 6-6 6"/>',
   formulas:'<path d="M17.5 5h-11l6 7-6 7h11"/>',
-  back:'<path d="M19 12H5M11 6l-6 6 6 6"/>'};
+  back:'<path d="M19 12H5M11 6l-6 6 6 6"/>',
+  sidebar:'<rect x="3.5" y="4.5" width="17" height="15" rx="3"/><path d="M9.5 4.5v15"/>'};
 const svg=k=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[k]}</svg>`;
 function navHTML(){
   if(!S.setup)return'';
@@ -1579,7 +1608,7 @@ function navHTML(){
   const cur=v=>view===v||(/^(formula|fxrun|fxresults)$/.test(view)&&v==='formulas')||(view==='run'&&S.practice&&v===(S.practice.kind==='review'?'review':'practice'));
   const it=(v,l,sh,c,x)=>`<button class="navbtn${x?' nav-extra':''}" data-act="go" data-v="${v}" ${cur(v)?'aria-current="page"':''}><span class="ic">${svg(v)}</span><span class="l-full">${l}</span><span class="l-short">${sh}</span>${c?`<span class="count">${c}</span>`:''}</button>`;
   const ib=(v,l)=>`<button class="iconbtn" data-act="go" data-v="${v}" aria-label="${l}" title="${l}" ${view===v?'aria-current="page"':''}>${svg(v)}</button>`;
-  return`<div class="brand"><span class="mark" data-mark="stack"></span><b>Ascension</b></div>
+  return`<div class="brand"><span class="mark" data-mark="stack"></span><b>Ascension</b><button class="iconbtn nav-hide" data-act="navtoggle" aria-label="Hide sidebar" title="Hide sidebar">${svg('sidebar')}</button></div>
    <button class="cmdk" data-act="cmdk" aria-label="Search and jump (${MOD} K)">${svg('search')}<span>Jump to…</span></button>
    <div class="mtop"><div class="brand-sm"><span class="mark" data-mark="stack"></span><b>Ascension</b></div><span class="lvl-chip">Level ${lv}</span>${themeBtn()}${ib('achievements','Achievements')}${ib('settings','Settings')}</div>
    <div class="navlist">${it('today','Today','Today')}${it('real','Real test','Test')}${it('practice','Practice','Practice')}${it('review','Review','Review',rc||'')}${it('formulas','Formulas','Formulas')}${it('dashboard','Dashboard','Stats')}${it('achievements','Achievements','Awards','',1)}${it('settings','Settings','Settings','',1)}</div>
@@ -1881,7 +1910,7 @@ VIEWS.run=()=>{
       (R?'':`<div class="typed"><label for="ans" class="hint">Type the option number</label><input type="text" id="ans" inputmode="numeric" maxlength="3" autocomplete="off" placeholder="1, 2, 3 or 4"></div>`);
   }else{
     body=R?`<div class="typed"><p class="hint">You wrote</p><p class="qtext">${esc(R.ty)||'<span class="muted">(blank)</span>'}</p></div>`:
-      `<div class="typed"><label for="ans" class="hint">Write your answer. Spelling slips are fine, but every key term has to be there.</label><input type="text" id="ans" autocomplete="off" spellcheck="false"></div>`;
+      `<div class="typed"><label for="ans" class="hint">Write your answer.</label><input type="text" id="ans" autocomplete="off" spellcheck="false"></div>`;
   }
   let fb='';
   if(R){fb=`<div class="feedback ${R.r}"><h3>${R.r==='c'?(R.ov?'Counted as right':'Right'):'Not quite'}</h3>
@@ -2028,8 +2057,8 @@ ACT.rvpast=()=>{const ids=shuffle(Object.keys(S.cleared).filter(id=>QS[id]&&!S.r
 /* The sheets and each page's text come from formulas/index.js (window.FORMULAS). The questions made from the sheets
    come from formulas/practice.js (window.FXQ, built by build_formula_practice.js): per sheet, a list of
    [kind F|Q, prompt, right answer, wrong, wrong, wrong, page, note]. A question's id is "<sheet>-<index>".
-   Formula practice keeps its own record in S.formulas. It never counts as a test, never adds to Review and never
-   touches achievements. */
+   Formula practice keeps its own record in S.formulas. It never counts as a test and never adds to Review; its own
+   achievements (category Formulas) read that record. */
 const FX=()=>window.FORMULAS||null;
 const FSETS=[['P','Physics'],['C','Chemistry'],['S','Cheat Sheet']],FSETNAME={P:'Physics',C:'Chemistry',S:'Cheat Sheet'};
 const FTAG={Physics:'P',Chemistry:'C',Maths:'M'};
@@ -2266,11 +2295,15 @@ ACT.fxfinish=()=>{const R=S.fxrun;if(!R)return;const test=R.mode==='test';
   const items=R.qs.map(Q=>{let ch=null,r;if(test){ch=R.sel[Q.id]||null;r=ch?(ch===Q.a?'c':'w'):'s'}else{const x=R.res[Q.id]||(R.seen&&R.seen[Q.id]?{ch:null,r:'s'}:null);if(!x)return null;ch=x.ch;r=x.r}return{id:Q.id,st:Q.st,o:Q.o,a:Q.a,ch,r}}).filter(Boolean);
   S.fxrun=null;if(!items.length){save();return go('formulas')}
   const f=fxState(),day=today();
+  // lifetime counters for the Formula achievements (runs keeps only the last 30 sessions)
+  const cl0=Object.keys(f.miss).length;
   items.forEach(x=>{const st=f.st[x.id]||(f.st[x.id]={c:0,w:0});st.day=day;
-    if(x.r==='c'){st.c++;st.last='c';delete f.miss[x.id]}else{if(x.r==='w'){st.w++;st.last='w'}f.miss[x.id]={day,st:x.st}}});
+    if(x.r==='c'){st.c++;st.last='c';if(f.miss[x.id])f.cleared=(f.cleared||0)+1;delete f.miss[x.id]}else{if(x.r==='w'){st.w++;st.last='w'}f.miss[x.id]={day,st:x.st}}});
   const c=items.filter(x=>x.r==='c').length,w=items.filter(x=>x.r==='w').length;
   const t={id:R.id,day,mode:R.mode,label:R.label,dur:Math.round((Date.now()-R.start)/1000),tmin:R.timer?R.timer.mins:0,items,c,w,s:items.length-c-w};
-  f.runs.push(t);if(f.runs.length>30)f.runs=f.runs.slice(-30);fxRf='all';save();go('fxresults',t.id)};
+  if(c+w>=10){f.n=(f.n||0)+1;if(R.mode==='test')f.tests=(f.tests||0)+1}
+  if(items.length>=20&&c===items.length)f.perfect=(f.perfect||0)+1;
+  f.runs.push(t);if(f.runs.length>30)f.runs=f.runs.slice(-30);fxRf='all';save();go('fxresults',t.id);soonAch()};
 document.addEventListener('keydown',e=>{if(view!=='fxrun'||!S.fxrun||e.ctrlKey||e.metaKey||e.altKey||/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)||$('#modal').classList.contains('open')||!$('#cmdk').hidden)return;
   const R=S.fxrun,Q=R.qs[R.i],test=R.mode==='test',done=!test&&R.res[Q.id],k=e.key;
   if(['1','2','3','4'].includes(k)&&!done){e.preventDefault();ACT.fxpick({dataset:{o:k}})}
@@ -2430,8 +2463,11 @@ function savePrefs(){try{localStorage.setItem(PK,JSON.stringify(PREF))}catch(e){
 const darkMQ=matchMedia('(prefers-color-scheme: dark)');
 const calm=()=>PREF.motion==='off'||matchMedia('(prefers-reduced-motion: reduce)').matches;
 function themeNow(){return PREF.theme==='auto'?(darkMQ.matches?'dark':'light'):PREF.theme}
+ACT.navtoggle=()=>{PREF.navc=!PREF.navc;savePrefs();applyPrefs();const b=document.querySelector(PREF.navc?'#navopen':'.nav-hide');b&&b.focus()};
 function applyPrefs(){
-  const d=document.documentElement;d.dataset.theme=themeNow();d.dataset.size=PREF.size;
+  const d=document.documentElement;if(PREF.navc)d.dataset.navc='1';else delete d.dataset.navc;
+  // the button that brings a hidden sidebar back
+  if(!document.getElementById('navopen')){const b=document.createElement('button');b.id='navopen';b.className='iconbtn';b.dataset.act='navtoggle';b.setAttribute('aria-label','Show sidebar');b.title='Show sidebar';b.innerHTML=svg('sidebar');document.body.appendChild(b)}d.dataset.theme=themeNow();d.dataset.size=PREF.size;
   if(PREF.motion==='off')d.dataset.motion='off';else delete d.dataset.motion;
   const m=document.querySelector('meta[name="theme-color"]');if(m)m.content=getComputedStyle(document.body).backgroundColor;
 }
