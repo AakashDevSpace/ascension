@@ -6,11 +6,11 @@
 <meta name="description" content="Timed NEET past papers, untimed practice and a review tab for every mistake, kept in this browser.">
 <meta name="theme-color" content="#f5f5f7">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=2">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Ascension">
-<link rel="icon" type="image/svg+xml" href="icons/logo.svg">
-<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="icon" type="image/svg+xml" href="icons/logo.svg?v=2">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png?v=2">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:opsz,wght@6..144,300..800&family=Google+Sans+Code:wght@400..600&display=swap" rel="stylesheet">
@@ -122,7 +122,10 @@ body[data-mode=exam] #nav,body[data-mode=gate] #nav{display:none}
 #nav{background:var(--sheet);border-right:1px solid var(--line);padding:28px 16px 24px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
 .mark{display:inline-block;flex:none;width:22px;height:22px;background:var(--p-action);-webkit-mask:var(--mark) center/contain no-repeat;mask:var(--mark) center/contain no-repeat}
 /* the brand mark is the full-colour Ascension logo (icons/logo.svg), not a single-colour glyph */
-.mark[data-mark="stack"],.gate-brand .mark[data-mark="stack"]{background:url(icons/logo.svg) center/contain no-repeat;-webkit-mask:none;mask:none;width:26px;height:26px}
+.mark[data-mark="stack"],.gate-brand .mark[data-mark="stack"]{background:url(icons/logo.svg?v=2) center/contain no-repeat;-webkit-mask:none;mask:none;width:28px;height:28px;transform:translateY(-10%)}
+/* the setup page: the logo alone, large and centred */
+.gate-logo{display:flex;justify-content:center;padding:0 0 36px}
+.gate-logo .mark[data-mark="stack"]{width:132px;height:132px;transform:none}
 .mark[data-mark="old-stack"]{--mark:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='2' y='2.5' width='20' height='5.5' rx='2.75'/%3E%3Crect x='2' y='9.25' width='14' height='5.5' rx='2.75'/%3E%3Crect x='2' y='16' width='8' height='5.5' rx='2.75'/%3E%3C/svg%3E")}
 .brand{padding:0 12px 28px;display:flex;align-items:center;gap:10px}
 .brand b{font:500 20px/1 var(--font-display);letter-spacing:-.03em}
@@ -364,7 +367,7 @@ body.locked #app{filter:grayscale(1);opacity:.5;pointer-events:none}
 /* ---------- the entrance: the first view arrives once on load ---------- */
 @media (prefers-reduced-motion:no-preference){
   html.m-enter #main>.page-head h1{animation:enter-h .7s var(--m-ease-enter) both}
-  html.m-enter #main>.page-head>p,html.m-enter #main>.page-head>.eyebrow,html.m-enter #main>.gate-brand{animation:enter-p .52s var(--m-ease-enter) .12s both}
+  html.m-enter #main>.page-head>p,html.m-enter #main>.page-head>.eyebrow,html.m-enter #main>.gate-brand,html.m-enter #main>.gate-logo{animation:enter-p .52s var(--m-ease-enter) .12s both}
   html.m-enter #main>.page-head~*{animation:enter-p .52s var(--m-ease-enter) .3s both}
 }
 @keyframes enter-h{from{transform:translateY(.45em);opacity:0}to{transform:none;opacity:1}}
@@ -823,9 +826,15 @@ body.focus #nav{display:none}
 /* the sidebar can be hidden on wide screens; a small button at the top left brings it back */
 .brand .nav-hide{margin-left:auto}
 #navopen{display:none;position:fixed;top:18px;left:18px;z-index:30;background:var(--sheet);border:1px solid var(--line);box-shadow:var(--sh-1)}
-@media (min-width:901px){html[data-navc] #nav{display:none}html[data-navc] #app{grid-template-columns:minmax(0,1fr)}
+@media (min-width:901px){#app{overflow-x:clip}#nav{width:var(--side)}
+  html[data-navc] #nav{transform:translateX(-100%);visibility:hidden}html[data-navc] #app{grid-template-columns:0px minmax(0,1fr)}
   html[data-navc] body[data-mode=app]:not(.focus) #navopen{display:grid}}
 @media (max-width:900px){.brand .nav-hide{display:none}}
+@media (min-width:901px) and (prefers-reduced-motion:no-preference){
+  #app{transition:grid-template-columns .42s cubic-bezier(.32,.72,0,1)}
+  #nav{transition:transform .42s cubic-bezier(.32,.72,0,1),visibility 0s}
+  html[data-navc] #nav{transition:transform .42s cubic-bezier(.32,.72,0,1),visibility 0s .42s}
+  html[data-navc] body[data-mode=app]:not(.focus) #navopen{animation:enter-p .3s .2s var(--m-ease-enter) both}}
 body.focus #app{grid-template-columns:minmax(0,1fr)}
 body.focus #main{max-width:880px;padding-top:40px}
 @media (prefers-reduced-motion:no-preference){
@@ -1659,7 +1668,7 @@ document.addEventListener('input',e=>{const w=e.target.closest&&e.target.closest
 document.addEventListener('reset',e=>setTimeout(()=>e.target.querySelectorAll('.pwf').forEach(w=>{pwShow(w.querySelector('.pwf-eye'),false);pwSync(w)})));
 
 /* ===================== setup & lock ===================== */
-VIEWS.setup=()=>`<div class="brand gate-brand"><span class="mark" data-mark="stack"></span><b>Ascension</b></div><header class="page-head"><h1>Set up Ascension</h1></header>
+VIEWS.setup=()=>`<div class="gate-logo"><span class="mark" data-mark="stack" role="img" aria-label="Ascension"></span></div><header class="page-head"><h1>Set up Ascension</h1></header>
  <form class="sheet" id="setupForm">
   <div class="field"><label for="su-name">Who is practising?</label><input type="text" id="su-name" autocomplete="off" required></div>
   <div class="field"><label for="su-pw">Unlock password</label>${pwField('su-pw',{strength:1,ac:'new-password',req:1})}<small>If Ascension goes unopened for three days in a row, it pauses until this password is entered.</small></div>
