@@ -42,7 +42,8 @@
     const newer=(a.updatedAt||0)>=(b.updatedAt||0)?a:b,older=newer===a?b:a,m=Object.assign({},older,newer);
     const byId=new Map();[...(older.tests||[]),...(newer.tests||[])].forEach(t=>byId.set(t.id,t));
     m.tests=[...byId.values()].sort((x,y)=>(x.at||0)-(y.at||0));
-    m.days=Object.assign({},older.days||{});for(const[d,r]of Object.entries(newer.days||{})){const o=m.days[d];m.days[d]=o?Object.assign({},o,r,{secs:Math.max(o.secs||0,r.secs||0),tests:Math.max(o.tests||0,r.tests||0),done:!!(o.done||r.done)}):r}
+    m.days=Object.assign({},older.days||{});for(const[d,r]of Object.entries(newer.days||{})){const o=m.days[d];m.days[d]=o?Object.assign({},o,r,{secs:Math.max(o.secs||0,r.secs||0),tests:Math.max(o.tests||0,r.tests||0),done:!!(o.done||r.done),t2:!!(o.t2||r.t2),rq:Object.assign({},o.rq,r.rq),clr:Object.assign({},o.clr,r.clr)}):r}
+    m.disc=mergeDisc(a.disc,b.disc);
     m.ach=Object.assign({},older.ach||{},newer.ach||{});
     m.cleared=Object.assign({},older.cleared||{},newer.cleared||{});
     // Review: both lists joined; a question cleared on either browser after it was added stays cleared
@@ -110,14 +111,12 @@
       if(status.t!=='saved'){const why=status.err;C.token='';saveC();err.textContent='Could not save to GitHub: '+why;return}
       render();plainToast('Connected. Your progress is saved in '+C.owner+'/'+C.repo+'.')}
     catch(x){C.token='';err.textContent=x.message}}}
-  const _set=VIEWS.settings;VIEWS.settings=a=>{const h=_set(a);const i=h.indexOf('<section class="sheet"><h2>Papers in this copy');return i<0?h+cardHTML():h.slice(0,i)+cardHTML()+h.slice(i)};
+  const _set=VIEWS.settings;VIEWS.settings=a=>{const h=_set(a);const i=h.indexOf('<details class="sheet fold"><summary><h2>Papers in this copy');return i<0?h+cardHTML():h.slice(0,i)+cardHTML()+h.slice(i)};
   const _hs=HOOKS.settings;HOOKS.settings=a=>{_hs&&_hs(a);bindForm()};
   ACT.ghsave=()=>{clearTimeout(timer);upload()};
   ACT.ghoff=()=>modal(`<h2>Disconnect this browser?</h2><p>Progress stays on GitHub and in this browser, but this browser stops uploading until you connect again.</p><div class="row"><button class="btn" data-act="ghoffok">Disconnect</button><button class="btn quiet" data-act="close">Cancel</button></div>`);
   ACT.ghoffok=()=>{closeModal();C.token='';saveC();status={t:'',when:0,err:''};render()};
 
-  // the lock screen says "No practice for 0 days" on a new browser; say what is happening instead
-  const _lock=showLock;showLock=gap=>{_lock(gap);if(!gap){const p=document.querySelector('#modal p');if(p)p.textContent='Progress loaded from GitHub. Enter your unlock password to open it on this browser.'}};
 
   // a setup screen already on view (new browser) gets the GitHub form; an open profile checks GitHub for newer progress
   if(view!=='setup')syncDown();

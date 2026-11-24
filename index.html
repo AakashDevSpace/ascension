@@ -1155,6 +1155,27 @@ body[data-mode=gate] #main{max-width:520px}
 }
 .vnote{margin:10px 0 4px;padding:10px 14px;border-radius:var(--r-sm);background:var(--wash);font-size:14px;line-height:1.55;color:var(--p-ink)}
 .vnote b{display:block;font-size:12.5px;font-weight:600;color:var(--p-action);margin-bottom:2px}
+
+/* ---- daily target: hearts and the month ---- */
+.dash-head{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;flex-wrap:wrap}
+.hearts-box{display:flex;flex-direction:column;align-items:flex-end;gap:8px;margin-left:auto}
+.hearts{display:flex;gap:6px}
+.heart{width:30px;height:27px;display:block}
+.heart.off path{fill:none;stroke:var(--line-2);stroke-width:1.4}
+.heart.on{filter:drop-shadow(0 2px 6px rgba(124,58,237,.28))}
+.hearts-note{font-size:12.5px;color:var(--p-muted)}
+.heart-warn{font-size:12.5px;font-weight:600;color:#ef4444}
+.month-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(34px,1fr));gap:10px 6px;margin-top:6px}
+.mday{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11.5px;color:var(--p-muted)}
+.mday .bub.today{border-width:2.5px}
+.bub.blank{border-color:var(--p-muted);background:repeating-linear-gradient(135deg,transparent 0 3px,var(--line-2) 3px 4px)}
+.bub.frz{opacity:.35}
+.month-key{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:14px;font-size:13px}
+.month-key>span{display:inline-flex;align-items:center;gap:6px}.month-key .bub{width:14px;height:14px}
+.fz-dates{list-style:none;margin:8px 0 16px;padding:0;border-top:1px solid var(--line)}
+.fz-dates li{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line);font-size:14px}
+.fz-dates b{font-weight:600}
+.fold>summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between}.fold>summary::-webkit-details-marker{display:none}.fold>summary h2{margin:0}.fold>summary::after{content:'';width:9px;height:9px;border-right:2px solid var(--p-muted);border-bottom:2px solid var(--p-muted);transform:rotate(45deg);transition:transform .25s}.fold[open]>summary::after{transform:rotate(-135deg)}.fold[open]>summary{margin-bottom:14px}
 </style>
 </head>
 <body data-mode="app">
@@ -1560,14 +1581,16 @@ function nice(s){if(!s)return'';const[y,m,d]=s.split('-').map(Number);return new
 const level=()=>Math.floor(Math.sqrt(S.xp/80))+1;
 
 /* ===================== streak ===================== */
-function streakFrom(t){let n=0;while(S.days[t]&&S.days[t].done){n++;t=addDays(t,-1)}return n}
-function streak(){const t=today();return S.days[t]&&S.days[t].done?streakFrom(t):streakFrom(addDays(t,-1))}
-function bestStreak(){let best=0;Object.keys(S.days).forEach(d=>{if(S.days[d].done&&!(S.days[addDays(d,-1)]||{}).done)best=Math.max(best,streakFrom2(d))});return best}
-function streakFrom2(d){let n=0;while(S.days[d]&&S.days[d].done){n++;d=addDays(d,1)}return n}
+function dayLevel(ds){if(S.disc&&ds>=S.disc.start){const x=S.disc.days[ds];return x?x.pct:dayPct(ds)}const d=S.days[ds];return d&&d.done?100:d&&d.tests?50:0}
+const keeps=ds=>dayLevel(ds)>=50;
+function streakFrom(t){let n=0;while(keeps(t)){n++;t=addDays(t,-1)}return n}
+function streak(){const t=today();return keeps(t)?streakFrom(t):streakFrom(addDays(t,-1))}
+function bestStreak(){let best=0;new Set([...Object.keys(S.days),...Object.keys(S.disc?S.disc.days:{})]).forEach(d=>{if(keeps(d)&&!keeps(addDays(d,-1)))best=Math.max(best,streakFrom2(d))});return best}
+function streakFrom2(d){let n=0;while(keeps(d)){n++;d=addDays(d,1)}return n}
 function markReview(){const d=dayRec();if(reviewCount()===0)d.rc=true}
 function checkDay(){
   const d=dayRec();markReview();
-  if(!d.done&&d.tests>0&&reviewCount()===0){d.done=true;const st=streak();S.xp+=50+Math.min(100,st*5);
+  checkTask2();if(!d.done&&t1Of(today())&&t2Of(today())){d.done=true;const st=streak();S.xp+=50+Math.min(100,st*5);
     plainToast(st>1?`Today’s sheet is complete. ${st}-day streak.`:'Today’s sheet is complete. Your streak has started.')}
   save();soonAch();
 }
@@ -1681,27 +1704,119 @@ HOOKS.setup=()=>{$('#setupForm').onsubmit=e=>{e.preventDefault();const n=$('#su-
   if(!n)return $('#su-err').textContent='Enter a name.';if(pwHash(a,MASTER_SALT)!==MASTER_HASH)return $('#su-err').textContent='That is not the Master Password.';
   S.setup={name:n,salt:MASTER_SALT,hash:MASTER_HASH,created:today()};S.lastActive=today();saveNow();boot()}};
 VIEWS.lock=()=>'';
-function showLock(gap){
-  document.body.classList.add('locked');
-  modal(`<h2>Ascension is paused</h2><p>No practice for ${plural(gap,'day')}. Enter the unlock password to carry on. Nothing has been lost.</p>
-   <form id="lockForm"><div class="field"><label for="lk">Password</label>${pwField('lk',{req:1})}</div><div class="error" id="lkerr"></div><button class="btn" type="submit">Unlock</button></form>`);
-  $('#lockForm').onsubmit=e=>{e.preventDefault();if(pwHash($('#lk').value,S.setup.salt)===S.setup.hash){S.locked=false;S.stats.comeback++;document.body.classList.remove('locked');closeModal();save();start();checkAch()}else{$('#lkerr').textContent='That password doesn’t match. Try again.';$('#lk').select()}};
-}
+
+/* ===================== daily target, hearts and freeze =====================
+   A day is judged on two academic tasks, never on visits:
+     Task 1: a real test or practice session with DAILY_Q or more answered (d.tests, counted in finishTest).
+     Task 2: every wrong or skipped question that today's counted test sent to Review (d.rq) is cleared through
+             Review today (d.clr, stamped in clearReview after the question was added). Nothing to clear: done at once.
+   Task 1 alone is a half day (50%), both a full day (100%), neither a blank day (0%).
+   A day is judged once, after it ends, into S.disc.days, and never judged again. Each calendar month allows five
+   incomplete (half or blank) days, shown as hearts, and three blank days. Reaching either freezes Ascension until the
+   Master Password is entered; a new month never unfreezes it. Nothing is ever deleted. */
+const HEARTS=5,BLANK_MAX=3;
+function discInit(){if(!S.disc)S.disc={v:1,start:today(),days:{},spent:{},freezes:[],log:[]};const D=S.disc;
+  D.days=D.days||{};D.spent=D.spent||{};D.freezes=D.freezes||[];D.log=D.log||[];return D}
+const FX_MIN=20;
+/* what a day holds: questions answered in real tests and practice (right or wrong; Review runs and revisits don't add),
+   formulas answered outside the missed-formula runs, and what those sessions sent to the two Reviews that is still
+   waiting. A question counts as cleared when Review answers it right after the session that sent it there. */
+function dayWork(ds){
+  const qt=S.tests.filter(t=>t.day===ds&&t.kind!=='review'&&!t.revisit).sort((a,b)=>a.at-b.at);
+  const fr=fxState().runs.filter(x=>x.day===ds&&!x.rv).sort((a,b)=>a.id<b.id?-1:1);
+  const d=S.days[ds]||{},clr=d.clr||{},fclr=d.fclr||{},qL=new Set(),fL=new Set();
+  qt.forEach(t=>t.items.forEach(it=>{if(it.ne||!(it.r==='w'||(it.r==='s'&&!it.nr)))return;clr[it.id]>=t.at?qL.delete(it.id):qL.add(it.id)}));
+  fr.forEach(x=>{const at=+String(x.id).slice(1)||0;x.items.forEach(it=>{if(it.r==='c')return;fclr[it.id]>=at?fL.delete(it.id):fL.add(it.id)})});
+  const qa=qt.reduce((a,t)=>a+t.correct+t.wrong,0),fa=fr.reduce((a,x)=>a+x.c+x.w,0);
+  return{qa,fa,t1:qa>=DAILY_Q&&fa>=FX_MIN,qLeft:[...qL],fLeft:[...fL]}}
+const t1Of=ds=>dayWork(ds).t1;
+const t2Of=ds=>!!(S.days[ds]&&S.days[ds].t2);
+const dayPct=ds=>t1Of(ds)?(t2Of(ds)?100:50):0;
+const PCT_CLS={0:'blank',50:'half',100:'full'};
+const activeFreeze=()=>S&&S.disc&&S.disc.freezes.find(f=>!f.unlockedAt);
+function checkTask2(){const t=today(),d=dayRec(t);if(d.t2)return;const W=dayWork(t);if(W.t1&&!W.qLeft.length&&!W.fLeft.length){d.t2=true;d.t2at=Date.now()}}
+function monthCount(m){const D=S.disc,inc=[],blank=[];
+  for(const[ds,x]of Object.entries(D.days)){if(ds.slice(0,7)!==m||D.spent[ds])continue;if(x.cls==='half'||x.cls==='blank')inc.push(ds);if(x.cls==='blank')blank.push(ds)}
+  return{inc:inc.sort(),blank:blank.sort()}}
+const heartsLeft=(m=today().slice(0,7))=>Math.max(0,HEARTS-monthCount(m).inc.length);
+function freezeCheck(ds){const m=ds.slice(0,7),{inc,blank}=monthCount(m),reasons=[];
+  if(inc.length>=HEARTS)reasons.push({type:'incomplete',dates:inc});
+  if(blank.length>=BLANK_MAX)reasons.push({type:'blank',dates:blank});
+  return reasons.length?{id:'f'+ds+'-'+Date.now().toString(36),at:Date.now(),day:ds,month:m,reasons}:null}
+// judge every ended day not yet judged, oldest first; returns a freeze made now, if any
+function discRun(){
+  const D=discInit(),t=today();let ds=D.start,fresh=null;const judged=Object.keys(D.days).sort();
+  if(judged.length&&judged[judged.length-1]>=ds)ds=addDays(judged[judged.length-1],1);
+  for(let n=0;ds<t&&n<1000;ds=addDays(ds,1),n++){
+    if(D.days[ds])continue;const pct=dayPct(ds);
+    // days spent frozen can't be practised, so they are recorded but never cost a heart
+    D.days[ds]={t1:pct>0,t2:pct===100,pct,cls:activeFreeze()?'frozen':PCT_CLS[pct],at:Date.now()};
+    if(!activeFreeze()){const f=freezeCheck(ds);if(f){D.freezes.push(f);D.log.push({ev:'freeze',at:f.at,id:f.id});fresh=f}}
+  }
+  save();return fresh}
+function discUnlock(){const now=Date.now();
+  S.disc.freezes.filter(f=>!f.unlockedAt).forEach(f=>{f.unlockedAt=now;f.unlockedDay=today();
+    // the days behind this freeze are used up: the rest of that month starts again from five hearts
+    monthCount(f.month).inc.forEach(ds=>S.disc.spent[ds]=f.id);S.disc.log.push({ev:'unlock',at:now,id:f.id})});
+  S.stats.comeback++;saveNow()}
+// sync and backups: freezes, unlocks and judged days from both copies are kept
+function mergeDisc(a,b){if(!a)return b;if(!b)return a;
+  const m={v:1,start:a.start<b.start?a.start:b.start,days:Object.assign({},b.days,a.days),spent:Object.assign({},b.spent,a.spent),freezes:[],log:[]};
+  for(const[ds,x]of Object.entries(b.days||{})){const o=(a.days||{})[ds];if(o&&x.pct>o.pct)m.days[ds]=x}
+  const fz=new Map();[...(b.freezes||[]),...(a.freezes||[])].forEach(f=>{const o=fz.get(f.id);fz.set(f.id,o?Object.assign({},o,f,{unlockedAt:o.unlockedAt||f.unlockedAt,unlockedDay:o.unlockedDay||f.unlockedDay}):f)});
+  m.freezes=[...fz.values()].sort((x,y)=>x.at-y.at);
+  const lg=new Map();[...(b.log||[]),...(a.log||[])].forEach(e=>lg.set(e.ev+e.id+e.at,e));m.log=[...lg.values()].sort((x,y)=>x.at-y.at);
+  return m}
+const FREEZE_TXT={incomplete:'Your system has been frozen because you accumulated five incomplete days (blank or half days) this month. Your monthly allowance has been exhausted.',
+  blank:'Your system has been frozen because you accumulated three completely blank days this month. Your daily academic commitment was not maintained.'};
+function showFreeze(){const f=activeFreeze();if(!f)return;document.body.classList.add('locked');
+  const kind=ds=>(S.disc.days[ds]||{}).cls==='half'?'Half day':'Blank day';
+  modal(`<h2>Ascension is frozen</h2>${S.disc.freezes.filter(x=>!x.unlockedAt).map(x=>x.reasons.map(rs=>`<p>${FREEZE_TXT[rs.type]}</p>
+    <ul class="fz-dates">${rs.dates.map(ds=>`<li><span>${nice(ds)}</span><b>${kind(ds)}</b></li>`).join('')}</ul>`).join('')).join('')}
+   <p class="muted" style="font-size:13px">Frozen on ${nice(dstr(new Date(f.at)))}. Every test, score and Review question is kept. Real tests and practice open again with the Master Password.</p>
+   <form id="fzForm"><div class="field"><label for="fzpw">Master Password</label>${pwField('fzpw',{req:1,ac:'current-password'})}</div><div class="error" id="fzerr"></div><button class="btn" type="submit">Unlock</button></form>`);
+  $('#fzForm').onsubmit=e=>{e.preventDefault();
+    if(pwHash($('#fzpw').value,MASTER_SALT)===MASTER_HASH){discUnlock();document.body.classList.remove('locked');closeModal();start();checkAch();plainToast('Unlocked. Five hearts for the rest of the month.')}
+    else{$('#fzerr').textContent='That is not the Master Password.';$('#fzpw').select()}}}
+// a day can end while the app is open
+setInterval(()=>{if(!S||!S.setup||!S.disc||activeFreeze())return;if(discRun()){if(view!=='exam')render();showFreeze()}},30000);
+// the five hearts, with the same flowing purple as the logo
+function heartsHTML(){const m=today().slice(0,7),left=activeFreeze()?0:heartsLeft(m),{inc,blank}=monthCount(m);
+  const H='M12 20.6s-7.6-4.7-7.6-10.4A4.4 4.4 0 0 1 12 7.4a4.4 4.4 0 0 1 7.6 2.8c0 5.7-7.6 10.4-7.6 10.4Z';
+  const hearts=Array.from({length:HEARTS},(_,i)=>i<left
+    ?`<svg viewBox="2 4 20 18" class="heart on"><path d="${H}" fill="url(#hg)"/></svg>`
+    :`<svg viewBox="2 4 20 18" class="heart off"><path d="${H}"/></svg>`).join('');
+  return`<div class="hearts-box">
+   <div class="hearts" role="img" aria-label="${left} of ${HEARTS} hearts left this month">
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><linearGradient id="hg" x1="0" y1="0" x2="20" y2="0" gradientUnits="userSpaceOnUse" spreadMethod="repeat">
+     <stop offset="0" stop-color="#4c1d95"/><stop offset=".25" stop-color="#7c3aed"/><stop offset=".5" stop-color="#c4b5fd"/><stop offset=".72" stop-color="#e9a8f5"/><stop offset="1" stop-color="#4c1d95"/>
+     <animateTransform attributeName="gradientTransform" type="translate" from="0 0" to="20 0" dur="7s" repeatCount="indefinite"/></linearGradient></defs></svg>${hearts}</div>
+   <span class="hearts-note">${inc.length} of ${HEARTS} incomplete days · ${blank.length} of ${BLANK_MAX} blank days this month</span>${left===1?'<span class="heart-warn" role="alert">Losing this heart will permanently delete all the progress.</span>':''}</div>`}
+function monthHTML(){const t=today(),m=t.slice(0,7),[y,mo]=m.split('-').map(Number),n=new Date(y,mo,0).getDate(),D=S.disc;let cells='',c={full:0,half:0,blank:0};
+  for(let i=1;i<=n;i++){const ds=m+'-'+String(i).padStart(2,'0'),x=D.days[ds];let cls='',lbl='';
+    if(ds>t)lbl='still to come';else if(ds===t){const p=dayPct(ds);cls='today '+(p===100?'filled':p===50?'half':'');lbl=`today so far, ${p}%`}
+    else if(ds<D.start)lbl='before the daily target began';
+    else if(x){c[x.cls]!=null&&c[x.cls]++;cls=x.cls==='full'?'filled':x.cls==='half'?'half':x.cls==='blank'?'blank':'frz';lbl=x.cls==='frozen'?'frozen':`${x.cls} day, ${x.pct}%`+(D.spent[ds]?', allowance renewed after unlock':'')}
+    cells+=`<span class="mday"><span class="bub ${cls}" title="${nice(ds)}: ${lbl}"></span>${i}</span>`}
+  return`<section class="sheet"><h2>Daily target, ${new Date(y,mo-1,1).toLocaleDateString('en-IN',{month:'long',year:'numeric'})}</h2>
+   <div class="month-grid">${cells}</div>
+   <p class="muted month-key"><span><span class="bub filled"></span>Full day</span><span><span class="bub half"></span>Half day</span><span><span class="bub blank"></span>Blank day</span></p></section>`}
 
 /* ===================== today ===================== */
+const CHEERS=["All the bubbles filled! Great Job!","All the bubbles filled! Nicely Done!","All the bubbles filled! Well Played!","All the bubbles filled! Mission Complete!","All the bubbles filled! Keep It Up!","All the bubbles filled! Excellent Work!","All the bubbles filled! Smooth Finish!","All the bubbles filled! You Nailed It!","All the bubbles filled! Simply Wonderful!","All the bubbles filled! You’re Doing Great!","All the bubbles filled! Perfectly Done!","All the bubbles filled! Brilliant Effort!","All the bubbles filled! Looking Good!","All the bubbles filled! Another Win!","All the bubbles filled! Outstanding Work!","All the bubbles filled! That’s Impressive!","All the bubbles filled! Keep Shining!","All the bubbles filled! Beautifully Done!","All the bubbles filled! Great Finish!","All the bubbles filled! You’re a Star!","All the bubbles filled! Excellent Progress!","All the bubbles filled! That’s the Way!","All the bubbles filled! A Job Well Done!","All the bubbles filled! You’ve Got This!","All the bubbles filled! Simply Amazing!","All the bubbles filled! Another Milestone!","All the bubbles filled! Fantastic Effort!","All the bubbles filled! Perfect Finish!","All the bubbles filled! Truly Deserved!","All the bubbles filled! Time to Celebrate!"];
 VIEWS.today=()=>{
-  const t=today(),d=S.days[t]||{tests:0},rc=reviewCount(),st=streak();
+  const t=today(),d=S.days[t]||{tests:0},rc=reviewCount(),st=streak(),W=dayWork(t),b1=W.t1,b2=b1&&!!d.t2,filled=b1+b2;
   const h=new Date().getHours(),greet=h<12?'Good morning':h<17?'Good afternoon':'Good evening';
   let strip='';for(let i=13;i>=0;i--){const ds=addDays(t,-i),dd=S.days[ds],[y,m,dn]=ds.split('-').map(Number),wd=new Date(y,m-1,dn).toLocaleDateString('en-IN',{weekday:'narrow'});
-    strip+=`<div title="${nice(ds)}${dd&&dd.done?': complete':dd&&dd.tests?': test done, review left':''}"><span class="bub ${dd&&dd.done?'filled':dd&&dd.tests?'half':''}" ${i===0?'style="border-width:2.5px"':''}></span>${wd}</div>`}
+    const lv=dayLevel(ds);strip+=`<div title="${nice(ds)}${lv===100?': full day':lv===50?': half day':''}"><span class="bub ${lv===100?'filled':lv===50?'half':''}" ${i===0?'style="border-width:2.5px"':''}></span>${wd}</div>`}
   const last=S.tests.slice(-3).reverse();
-  return`<header class="page-head"><span class="eyebrow">${new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long'})}</span><h1>${greet}, ${esc(S.setup.name)}</h1><p>${d.done?'Today’s sheet is done. Anything more is extra credit.':'Two bubbles to fill today: one test, and an empty Review tab.'}</p></header>${todayTop()}
-  <section class="sheet ${d.done?'is-done':''}"><h2>Today’s sheet</h2>
-   <div class="omr-row"><span class="bub ${d.tests?'filled':''}"></span><div><b>Finish one test</b><span>Real or practice, with ${DAILY_Q} or more questions answered. ${d.tests?plural(d.tests,'test')+' finished today.':'None yet today.'}</span></div><button class="btn ${d.tests?'ghost':''}" data-act="go" data-v="practice">Start a practice test</button></div>
-   <div class="omr-row"><span class="bub ${rc===0?'filled':''}"></span><div><b>Clear the Review tab</b><span>${rc?plural(rc,'question')+' waiting from earlier mistakes and skips.':'Nothing waiting.'}</span></div>${rc?'<button class="btn" data-act="go" data-v="review">Open Review</button>':''}</div>
+  return`<header class="page-head dash-head"><div><span class="eyebrow">${new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long'})}</span><h1>${greet}, ${esc(S.setup.name)}</h1><p>${filled===2?CHEERS[[...t].reduce((a,ch)=>a*31+ch.charCodeAt(0)>>>0,7)%CHEERS.length]:filled===1?'One more bubble to fill today.':'Two bubbles to fill today.'}</p></div>${heartsHTML()}</header>${todayTop()}
+  <section class="sheet ${b2?'is-done':''}"><h2>Today’s sheet</h2>
+   <div class="omr-row"><span class="bub ${b1?'filled':''}"></span><div><b>Answer ${DAILY_Q} questions and ${FX_MIN} formulas</b><span>Today: <b>${Math.min(W.qa,DAILY_Q)} of ${DAILY_Q}</b> questions, <b>${Math.min(W.fa,FX_MIN)} of ${FX_MIN}</b> formulas.</span></div>${b1?'':`<button class="btn" data-act="go" data-v="${W.qa<DAILY_Q?'practice':'formulas'}">${W.qa<DAILY_Q?'Start a practice test':'Practise formulas'}</button>`}</div>
+   <div class="omr-row"><span class="bub ${b2?'filled':''}"></span><div><b>Clear both Reviews</b><span>${!b1?'The wrong and skipped questions and formulas from today’s practice, answered right. Opens after the first bubble.':b2?'Done for today.':[W.qLeft.length?plural(W.qLeft.length,'question')+' in Review':'',W.fLeft.length?plural(W.fLeft.length,'formula')+' in Missed formulas':''].filter(Boolean).join(' and ')+' still to answer right.'}</span></div>${b1&&!b2?(W.qLeft.length?'<button class="btn" data-act="go" data-v="review">Open Review</button>':'<button class="btn" data-act="fxstart" data-scope="miss">Missed formulas</button>'):''}</div>
   </section>
   <div class="split"><section class="sheet"><h2>Streak</h2><p class="streak-line"><b>${st}</b> ${st===1?'day':'days'} in a row${bestStreak()>st?`, best ${bestStreak()}`:''}</p><div class="strip">${strip}</div>
-    <p class="muted" style="margin-top:12px;font-size:13px">A filled bubble is a complete day. Half-filled means a test was done but the Review tab wasn’t cleared.</p></section>
+    <p class="muted" style="margin-top:12px;font-size:13px">A filled bubble is a full day, a half-filled one a half day. Both keep the streak; a blank day breaks it.</p></section>
    <section class="sheet"><h2>Recent results</h2>${last.length?`<table>${last.map(r=>`<tr><td><a href="#" data-act="go" data-v="results" data-arg="${r.id}">${esc(r.label)}</a><div class="muted" style="font-size:12.5px">${nice(r.day)}</div></td><td class="num"><b>${r.score}</b> / ${r.max}</td></tr>`).join('')}</table>`:'<p class="muted">Results appear here after the first test.</p>'}
    <div class="row" style="margin-top:14px"><button class="btn quiet" data-act="go" data-v="real">Take a real test</button></div></section></div>`;
 };
@@ -1717,9 +1832,12 @@ function sectionBPlan(qids,ans){const plan={},by={};qids.forEach(id=>{const q=QS
     cut.forEach(id=>plan[id]='extra');ids.filter(id=>!ans[id]).forEach(id=>{if(need>0)need--;else plan[id]='spare'})}return plan}
 function shuffleBlocks(ids){const order=[],g={};ids.forEach(id=>{const s=secKey(QS[id]);if(!g[s]){g[s]=[];order.push(s)}g[s].push(id)});return order.flatMap(s=>shuffle(g[s]))}
 let realCfg={paper:null,shuffle:false,order:null};
+// mixed real test: questions drawn from the NEET papers, the mock tests, or both
+function realMix(){const m=realCfg.mix||(realCfg.mix={neet:true,mock:false});return m}
+const mixName=()=>{const m=realMix();return m.neet&&m.mock?'Mixed real test, NEET and mock':m.mock?'Mixed mock test':'Mixed real test'};
 function buildRealQids(){
   let ids;
-  if(realCfg.paper==='mixed'){const pool=Object.values(QS).filter(q=>!isMock(q.pid)),pick=(s,n)=>shuffle(pool.filter(q=>q.s===s)).slice(0,n).map(q=>q.id);ids=[...pick('P',45),...pick('C',45),...pick('B',90)];return ids}
+  if(realCfg.paper==='mixed'){const mx=realMix(),pool=Object.values(QS).filter(q=>isMock(q.pid)?mx.mock:mx.neet),pick=(s,n)=>shuffle(pool.filter(q=>q.s===s)).slice(0,n).map(q=>q.id);ids=[...pick('P',45),...pick('C',45),...pick('B',90)];return ids}
   else ids=PAPERS[realCfg.paper].questions.map(q=>q.id);
   return realCfg.shuffle?shuffleBlocks(ids):ids;
 }
@@ -1730,21 +1848,22 @@ VIEWS.real=()=>{
   const mins=realCfg.paper==='mixed'?180:paperMins(realCfg.paper),fmt200=realCfg.paper!=='mixed'&&PAPERS[realCfg.paper].format===200;
   return`<header class="page-head"><h1>Real test</h1><p>Exam conditions: options shown, ${mins} minutes, +4 for a right answer, −1 for a wrong one, 0 for a skip.</p></header>
   <section class="sheet"><h2>Paper</h2>${MOCKP.length?'<h3 class="grp-h">NEET Papers</h3>':''}<div class="chips">${ps.map(p=>`<button class="chip" data-act="rpaper" data-id="${p.id}" aria-pressed="${realCfg.paper===p.id}">${esc(p.label)} (Code ${esc(p.code)})</button>`).join('')}
-   <button class="chip" data-act="rpaper" data-id="mixed" aria-pressed="${realCfg.paper==='mixed'}">Mixed from all NEET papers</button></div>
-   ${MOCKP.length?`<h3 class="grp-h">Mock Tests</h3><div class="chips">${MOCKP.map(p=>`<button class="chip" data-act="rpaper" data-id="${p.id}" aria-pressed="${realCfg.paper===p.id}" title="${p.date?'Held '+nice(p.date):''}">${esc(p.label)}</button>`).join('')}</div>`:''}
-   ${realCfg.paper==='mixed'?'<p class="muted" style="margin-top:10px">45 Physics, 45 Chemistry and 90 Biology questions drawn at random from the NEET papers. The rank range averages the years used.</p>':''}</section>
+   <button class="chip" data-act="rmix" data-k="neet" aria-pressed="${realCfg.paper==='mixed'&&realMix().neet}">Mixed Papers</button></div>
+   ${MOCKP.length?`<h3 class="grp-h">Mock Tests</h3><div class="chips">${MOCKP.map(p=>`<button class="chip" data-act="rpaper" data-id="${p.id}" aria-pressed="${realCfg.paper===p.id}" title="${p.date?'Held '+nice(p.date):''}">${esc(p.label)}</button>`).join('')}<button class="chip" data-act="rmix" data-k="mock" aria-pressed="${realCfg.paper==='mixed'&&realMix().mock}">Mixed Papers</button></div>`:''}
+   ${realCfg.paper==='mixed'?`<p class="muted" style="margin-top:10px">45 Physics, 45 Chemistry and 90 Biology questions drawn at random from ${realMix().neet&&realMix().mock?'the NEET papers and the mock tests. With mock questions in it, the test has no rank range.':realMix().mock?'the mock tests. Mock tests have no rank range.':'the NEET papers. The rank range averages the years used.'}${MOCKP.length&&!(realMix().neet&&realMix().mock)?' Press the other Mixed Papers too to draw from both.':''}</p>`:''}</section>
   <section class="sheet"><h2>Question order</h2><div class="row"><button class="btn quiet" data-act="rshuffle">Shuffle</button>${realCfg.shuffle?'<button class="btn quiet" data-act="runshuffle">Use paper order</button>':''}<span class="muted">${realCfg.shuffle?'Shuffled. ':'Paper order. '}Starts with ${prev}…</span></div>${fmt200?'<p class="note" style="margin:16px 0 0">This paper has 200 questions. In each subject, Section B has 15 questions and you attempt any 10. If you answer more than 10, only the first 10 you answered count, as in the real exam. The maximum stays 720.</p>':''}</section>
   <section class="sheet"><h2>Before you start</h2><p>The clock can’t be paused. Closing the page doesn’t stop it, and reopening Ascension takes you back to the test with the time that is really left. When time runs out the answers are submitted.</p>
    <div class="row" style="margin-top:16px"><button class="btn" data-act="rstart">Start the ${mins}-minute test</button></div></section>`;
 };
 ACT.rpaper=el=>{realCfg.paper=el.dataset.id;realCfg.order=null;render()};
+ACT.rmix=el=>{const k=el.dataset.k,m=realMix();if(realCfg.paper!=='mixed'){m.neet=k==='neet';m.mock=k==='mock';realCfg.paper='mixed'}else{m[k]=!m[k];if(!m.neet&&!m.mock){m[k]=true}}realCfg.order=null;render()};
 ACT.rshuffle=()=>{realCfg.shuffle=true;realCfg.order=buildRealQids();render()};
 ACT.runshuffle=()=>{realCfg.shuffle=false;realCfg.order=buildRealQids();render()};
 ACT.rstart=()=>modal(`<h2>Start the test now?</h2><p>${realCfg.paper==='mixed'?180:paperMins(realCfg.paper)} minutes begin as soon as you press Start. There is no pause.</p><div class="row"><button class="btn" data-act="rgo">Start</button><button class="btn quiet" data-act="close">Not yet</button></div>`);
 ACT.rgo=()=>{closeModal();const now=Date.now(),ids=realCfg.order||buildRealQids();
   const early=new Date().getHours()<6;
   const pids=[...new Set(ids.map(id=>QS[id].pid))];
-  S.active={id:'t'+now,early,kind:'real',label:realCfg.paper==='mixed'?'Mixed real test':PAPERS[realCfg.paper].label+(isMock(realCfg.paper)?'':' real test'),qids:ids,pids,ans:{},mark:{},seen:{},time:{},cur:0,start:now,end:now+(realCfg.paper==='mixed'?180:paperMins(realCfg.paper))*60000,warned:{},shownAt:now};
+  S.active={id:'t'+now,early,kind:'real',label:realCfg.paper==='mixed'?mixName():PAPERS[realCfg.paper].label+(isMock(realCfg.paper)?'':' real test'),qids:ids,pids,ans:{},mark:{},seen:{},time:{},cur:0,start:now,end:now+(realCfg.paper==='mixed'?180:paperMins(realCfg.paper))*60000,warned:{},shownAt:now};
   realCfg.order=null;save();go('exam')};
 
 /* ===================== exam ===================== */
@@ -1820,7 +1939,7 @@ function finishTest(o){
   const years=[...new Set(o.items.map(it=>PAPERS[QS[it.id].pid].year))];
   const t={id:o.id,kind:o.kind,label:o.label,day:today(),at:Date.now(),items:o.items,score,max,correct:c,wrong:w,skipped:s,subj,dur:o.dur,toRev,
     ...(o.tmin?{tmin:o.tmin,beat:!!o.beat}:{}),...(o.revisit?{revisit:1}:{}),
-    rank:o.kind==='real'&&counted===180&&!((o.pids||[]).length===1&&PAPERS[o.pids[0]]&&PAPERS[o.pids[0]].norank)?rankFor(years,score):null};
+    rank:o.kind==='real'&&counted===180&&!(o.pids||[]).some(isMock)&&!((o.pids||[]).length===1&&PAPERS[o.pids[0]]&&PAPERS[o.pids[0]].norank)?rankFor(years,score):null};
   S.tests.push(t);
   // a session counts as a test (today's sheet, streaks, test XP, time-of-day achievements) only with DAILY_Q or more answered
   const counts=o.kind!=='review'&&!o.revisit&&c+w>=DAILY_Q;
@@ -1828,7 +1947,7 @@ function finishTest(o){
   S.xp+=counts?(o.kind==='real'?60:20):(o.kind==='review'&&c+w>0?10:0);
   if(counts&&new Date().getHours()>=23)S.stats.night++;
   if(counts&&o.early)S.stats.early++;
-  if(o.kind!=='review'&&!o.revisit&&!counts)plainToast(`Fewer than ${DAILY_Q} questions were answered, so this session doesn’t count toward today’s sheet.`);
+  if(o.kind!=='review'&&!o.revisit){const W=dayWork(today());plainToast(W.qa>=DAILY_Q?`${W.qa} questions answered today. The 50 are done${W.fa>=FX_MIN?'.':`; ${FX_MIN-W.fa} formulas to go.`}`:`${W.qa} of ${DAILY_Q} questions answered today. Right or wrong, every answered question counts.`)}
   checkDay();return t;
 }
 
@@ -1849,10 +1968,10 @@ VIEWS.practice=()=>{
   if(!prCfg.order||prCfg.order.length!==n)prCfg.order=(prCfg.inOrder?inPaperOrder(pool):shuffle(pool)).slice(0,n).map(q=>q.id);
   const chip=(act,val,cur,l)=>`<button class="chip" data-act="${act}" data-v="${val}" aria-pressed="${cur}">${l}</button>`;
   return`<header class="page-head"><h1>Practice</h1><p>No clock and no negative marks. You see the answer after each question.</p></header>
-  <section class="sheet"><h2>Papers</h2>${MOCKP.length?'<h3 class="grp-h">NEET Papers</h3>':''}<div class="chips">${DATA.papers.map(p=>chip('ppaper',p.id,prCfg.pids.includes(p.id),esc(p.label))).join('')}</div>
-   ${MOCKP.length?`<h3 class="grp-h">Mock Tests</h3><div class="chips">${chip('pmockall','all',MOCKP.every(p=>prCfg.pids.includes(p.id)),'All mock tests')}${MOCKP.map(p=>chip('ppaper',p.id,prCfg.pids.includes(p.id),esc(p.label))).join('')}</div>`:''}</section>
+  <section class="sheet"><h2>Papers</h2>${MOCKP.length?'<h3 class="grp-h">NEET Papers</h3>':''}<div class="chips">${DATA.papers.map(p=>chip('ppaper',p.id,prCfg.pids.includes(p.id),esc(p.label))).join('')}${chip('pneetall','all',DATA.papers.every(p=>prCfg.pids.includes(p.id)),'Mixed Papers')}</div>
+   ${MOCKP.length?`<h3 class="grp-h">Mock Tests</h3><div class="chips">${MOCKP.map(p=>chip('ppaper',p.id,prCfg.pids.includes(p.id),esc(p.label))).join('')}${chip('pmockall','all',MOCKP.every(p=>prCfg.pids.includes(p.id)),'Mixed Papers')}</div>`:''}</section>
   <section class="sheet"><h2>Subject</h2><div class="chips">${chip('psubj','all',prCfg.subj==='all','All subjects')}${['B','C','P'].map(s=>chip('psubj',s,prCfg.subj===s,SUBJ[s])).join('')}</div></section>
-  <section class="sheet"><h2>Questions</h2><div class="chips">${[10,20,45,90,180].map(c=>chip('pcount',c,prCfg.count===c,c)).join('')}</div><p class="muted" style="margin-top:10px">${pool.length} questions match. This test will have ${n}.</p></section>
+  <section class="sheet"><h2>Questions</h2><div class="chips">${[10,20,50,90,180].map(c=>chip('pcount',c,prCfg.count===c,c)).join('')}</div><p class="muted" style="margin-top:10px">${pool.length} questions match. This test will have ${n}.</p></section>
   <section class="sheet"><h2>Answer style</h2><div class="chips">${chip('pmode','mcq',!prCfg.noOpt,'Some Answer Writing')}${chip('pmode','noopt',prCfg.noOpt,'No Options')}</div>
    <p class="muted" style="margin-top:10px">${prCfg.noOpt?'No Options, every question answered in writing.':'Options are shown. About one question in four that can be answered without seeing the options is Answer Writing: you write the answer yourself.'}</p></section>
   <section class="sheet"><h2>Timer</h2><div class="dp-row">${dpHTML()}<span class="muted" style="font-size:14px">Press the pen to type hours and minutes, up to 5 hours.</span></div>
@@ -1863,6 +1982,7 @@ VIEWS.practice=()=>{
 };
 function resumeCard(){const P=S.practice,T=P.timer;return`<header class="page-head"><h1>${P.kind==='review'?'Review':'Practice'} in progress</h1><p>You are on question ${P.i+1} of ${P.qids.length}.${T?(T.up?' The timer has run out.':` ${fmtLeft(ptLeft(P))} left on the timer${T.run?'':', paused'}.`):''}</p></header><div class="row"><button class="btn" data-act="presume">Carry on</button><button class="btn quiet" data-act="pfinish">Finish now and see results</button></div>`}
 ACT.ppaper=el=>{const id=el.dataset.v,s=new Set(prCfg.pids);s.has(id)?s.delete(id):s.add(id);if(s.size)prCfg.pids=[...s];prCfg.order=null;render()};
+ACT.pneetall=()=>{const ids=DATA.papers.map(p=>p.id),on=ids.every(id=>prCfg.pids.includes(id)),s=new Set(prCfg.pids);ids.forEach(id=>on?s.delete(id):s.add(id));if(s.size)prCfg.pids=[...s];prCfg.order=null;render()};
 ACT.pmockall=()=>{const ids=MOCKP.map(p=>p.id),on=ids.every(id=>prCfg.pids.includes(id)),s=new Set(prCfg.pids);ids.forEach(id=>on?s.delete(id):s.add(id));if(s.size)prCfg.pids=[...s];prCfg.order=null;render()};
 ACT.psubj=el=>{prCfg.subj=el.dataset.v;prCfg.order=null;render()};
 ACT.pcount=el=>{prCfg.count=+el.dataset.v;prCfg.order=null;render()};
@@ -1954,7 +2074,7 @@ function pRecord(id,R){
 function clearReview(id){const rv=S.review[id];if(!rv)return;if(rv.skip)S.stats.skipCleared++;if(rv.wrong>=3)S.stats.oldFoe=(S.stats.oldFoe||0)+1;
   // cleared on a later day than it went in: the answer was recalled, not just read off the solution a minute ago
   if(rv.added<today())S.stats.clearedLater=(S.stats.clearedLater||0)+1;
-  delete S.review[id];S.cleared[id]=today();S.stats.reviewCleared++;S.xp+=5;if(reviewCount()===0){S.stats.emptied++;if((S.stats.revPeak||0)>=10)S.stats.emptiedBig=(S.stats.emptiedBig||0)+1;S.stats.revPeak=0;dayRec().rc=true;checkDay()}}
+  delete S.review[id];S.cleared[id]=today();{const dd=dayRec();(dd.clr=dd.clr||{})[id]=Date.now()}S.stats.reviewCleared++;S.xp+=5;if(reviewCount()===0){S.stats.emptied++;if((S.stats.revPeak||0)>=10)S.stats.emptiedBig=(S.stats.emptiedBig||0)+1;S.stats.revPeak=0;dayRec().rc=true}checkDay()}
 ACT.pcheck=()=>{
   const P=S.practice,id=P.qids[P.i],q=QS[id],mode=P.typed[id]&&QS[id].t?'typed':(P.noOpt?'num':'mcq');
   if(mode==='mcq'){if(!P.sel)return $('#perr').textContent='Pick an option first, or skip.';return pRecord(id,{mode,ch:P.sel,r:correctSet(q).includes(P.sel)||q.bonus?'c':'w'})}
@@ -2237,14 +2357,14 @@ document.addEventListener('keydown',e=>{if(view!=='formula'||e.ctrlKey||e.metaKe
 function fxBegin(ids,o){
   if(!ids.length)return;
   const qs=ids.map(id=>{const it=fxItem(id);let st=o.styles&&o.styles[id]||(o.style==='n'?'n':o.style==='f'?'f':(fxCanName(it)&&Math.random()<.5?'n':'f'));if(st==='n'&&!fxCanName(it))st='f';return fxMake(id,st)});
-  S.fxrun={id:'f'+Date.now(),mode:o.mode,label:o.label,qs,i:0,res:{},sel:{},pick:null,start:Date.now(),timer:o.tmin?{mins:o.tmin,left:o.tmin*60000,run:Date.now()}:null};
+  S.fxrun={id:'f'+Date.now(),...(o.rv?{rv:1}:{}),mode:o.mode,label:o.label,qs,i:0,res:{},sel:{},pick:null,start:Date.now(),timer:o.tmin?{mins:o.tmin,left:o.tmin*60000,run:Date.now()}:null};
   save();go('fxrun');
 }
 function fxScopeLabel(){const sh=fxCfg.sheets&&fxCfg.sheets.length?fxCfgSheets():null;
   if(sh&&sh.length===1)return fxSheet(sh[0]).title;if(sh)return plural(sh.length,'chapter');return{P:'Physics',C:'Chemistry',S:'Cheat sheets',A:'all sheets'}[fxCfg.set]}
 ACT.fxstart=el=>{if(S.fxrun)return go('fxrun');
   if(el&&el.dataset&&el.dataset.scope==='miss'){const m=fxState().miss,ids=shuffle(Object.keys(m).filter(id=>fxItem(id))).slice(0,fxCfg.count),styles={};ids.forEach(id=>styles[id]=m[id].st||'f');
-    return fxBegin(ids,{mode:'practice',label:'Formula practice, missed formulas',styles,tmin:0})}
+    return fxBegin(ids,{rv:1,mode:'practice',label:'Formula practice, missed formulas',styles,tmin:0})}
   const ids=shuffle(fxPool()).slice(0,fxCfg.count);
   fxBegin(ids,{mode:fxCfg.mode,style:fxCfg.style,tmin:fxCfg.tmin,label:`${fxCfg.mode==='test'?'Formula test':'Formula practice'}, ${fxScopeLabel()}${fxCfg.tmin?`, ${fxCfg.tmin}-minute timer`:''}`})};
 ACT.fxstartsheet=el=>{if(S.fxrun)return go('fxrun');const s=fxSheet(el.dataset.id),mode=el.dataset.mode;
@@ -2309,12 +2429,12 @@ ACT.fxfinish=()=>{const R=S.fxrun;if(!R)return;const test=R.mode==='test';
   // lifetime counters for the Formula achievements (runs keeps only the last 30 sessions)
   const cl0=Object.keys(f.miss).length;
   items.forEach(x=>{const st=f.st[x.id]||(f.st[x.id]={c:0,w:0});st.day=day;
-    if(x.r==='c'){st.c++;st.last='c';if(f.miss[x.id])f.cleared=(f.cleared||0)+1;delete f.miss[x.id]}else{if(x.r==='w'){st.w++;st.last='w'}f.miss[x.id]={day,st:x.st}}});
+    if(x.r==='c'){st.c++;st.last='c';if(f.miss[x.id]){f.cleared=(f.cleared||0)+1;const dd=dayRec();(dd.fclr=dd.fclr||{})[x.id]=Date.now()}delete f.miss[x.id]}else{if(x.r==='w'){st.w++;st.last='w'}f.miss[x.id]={day,st:x.st}}});
   const c=items.filter(x=>x.r==='c').length,w=items.filter(x=>x.r==='w').length;
-  const t={id:R.id,day,mode:R.mode,label:R.label,dur:Math.round((Date.now()-R.start)/1000),tmin:R.timer?R.timer.mins:0,items,c,w,s:items.length-c-w};
+  const t={id:R.id,day,...(R.rv?{rv:1}:{}),mode:R.mode,label:R.label,dur:Math.round((Date.now()-R.start)/1000),tmin:R.timer?R.timer.mins:0,items,c,w,s:items.length-c-w};
   if(c+w>=10){f.n=(f.n||0)+1;if(R.mode==='test')f.tests=(f.tests||0)+1}
   if(items.length>=20&&c===items.length)f.perfect=(f.perfect||0)+1;
-  f.runs.push(t);if(f.runs.length>30)f.runs=f.runs.slice(-30);fxRf='all';save();go('fxresults',t.id);soonAch()};
+  f.runs.push(t);if(f.runs.length>30)f.runs=f.runs.slice(-30);fxRf='all';checkDay();go('fxresults',t.id);soonAch()};
 document.addEventListener('keydown',e=>{if(view!=='fxrun'||!S.fxrun||e.ctrlKey||e.metaKey||e.altKey||/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)||$('#modal').classList.contains('open')||!$('#cmdk').hidden)return;
   const R=S.fxrun,Q=R.qs[R.i],test=R.mode==='test',done=!test&&R.res[Q.id],k=e.key;
   if(['1','2','3','4'].includes(k)&&!done){e.preventDefault();ACT.fxpick({dataset:{o:k}})}
@@ -2391,10 +2511,11 @@ VIEWS.dashboard=()=>{
   all.forEach(t=>t.items.forEach(it=>{const s=QS[it.id]&&QS[it.id].s;if(!s)return;if(it.r!=='s'){sub[s].n++;if(it.r==='c')sub[s].c++}sub[s].tm+=it.tm||0}));
   const bars=['B','C','P'].map(s=>{const p=sub[s].n?Math.round(sub[s].c/sub[s].n*100):0;return`<div class="bar"><span>${SUBJ[s]}</span><span class="track" title="${sub[s].c} of ${sub[s].n} right"><i style="width:${p}%"></i></span><span class="v">${sub[s].n?p+'%':'–'}</span></div>`}).join('');
   let cal='';const t0=today();const [ty,tm,td]=t0.split('-').map(Number);const start=addDays(t0,-(77+new Date(ty,tm-1,td).getDay()));
-  for(let i=0;;i++){const ds=addDays(start,i);if(dnum(ds)>dnum(t0))break;const d=S.days[ds];cal+=`<span class="bub ${d&&d.done?'filled':d&&d.tests?'half':''}" title="${nice(ds)}${d&&d.tests?`: ${plural(d.tests,'test')}, ${d.correct} right`:''}${d&&d.done?', complete':''}"></span>`}
+  for(let i=0;;i++){const ds=addDays(start,i);if(dnum(ds)>dnum(t0))break;const d=S.days[ds],lv=dayLevel(ds);cal+=`<span class="bub ${lv===100?'filled':lv===50?'half':''}" title="${nice(ds)}${d&&d.tests?`: ${plural(d.tests,'test')}, ${d.correct} right`:''}${d&&d.done?', complete':''}"></span>`}
   const recent=all.slice(-8).reverse();
   return`<header class="page-head"><h1>Dashboard</h1><p>Everything practised so far, ${esc(S.setup.name)}.</p></header>
   <div class="figs"><div><b>${all.filter(t=>t.kind!=='review').length}</b><span>Tests finished</span></div><div><b>${reals.length?bestReal():'–'}</b><span>Best real test, of 720</span></div><div><b>${ans?acc+'%':'–'}</b><span>Accuracy, ${fmt(ans)} answered</span></div><div><b>${streak()}</b><span>Day streak, best ${bestStreak()}</span></div><div><b>${reviewCount()}</b><span>In Review, ${fmt(S.stats.reviewCleared)} cleared</span></div></div>
+  ${monthHTML()}
   <section class="sheet"><h2>Real test scores</h2>${scoreChart(reals)}</section>
   <div class="split"><section class="sheet"><h2>Accuracy by subject</h2><div class="bars">${bars}</div>
      <p class="muted" style="margin-top:14px;font-size:13px">Average time per question: ${['B','C','P'].map(s=>{const n=all.reduce((a,t)=>a+t.items.filter(it=>QS[it.id]&&QS[it.id].s===s).length,0);return`${SUBJ[s]} ${n?Math.round(sub[s].tm/n):'–'}s`}).join(', ')}.</p></section>
@@ -2426,17 +2547,17 @@ VIEWS.settings=()=>`<header class="page-head"><h1>Settings</h1><p>Comfort for lo
   <p class="muted" style="margin-top:10px;font-size:13px">${S.lastBackup?'Last backup '+nice(S.lastBackup)+'.':'No backup saved yet.'}</p><div class="error" id="imperr"></div></section>
  <section class="sheet"><h2>Learner</h2><form id="nameForm" class="row"><input type="text" id="nm" value="${esc(S.setup.name)}" style="max-width:280px"><button class="btn quiet" type="submit">Save name</button></form></section>
  <section class="sheet"><h2>Unlock password</h2><form id="pwForm"><div class="field"><label for="pw0">Current password</label>${pwField('pw0')}</div><div class="field"><label for="pw1">New password</label>${pwField('pw1',{strength:1,ac:'new-password'})}</div><button class="btn quiet" type="submit">Change password</button><div class="error" id="pwerr"></div></form></section>
- <section class="sheet"><h2>Papers in this copy</h2><table><tr><th>Paper</th><th>Code</th><th class="num">Questions</th><th class="num">Answer Writing</th></tr>${DATA.papers.map(p=>`<tr><td>${esc(p.label)}</td><td>${esc(p.code)}</td><td class="num">${p.questions.length}</td><td class="num">${p.questions.filter(q=>q.t).length}</td></tr>`).join('')}</table>
-  ${MOCKP.length?`<h3 class="grp-h" style="margin-top:22px">Mock Tests</h3><table><tr><th>Set</th><th>Held</th><th class="num">Questions</th><th class="num">Answer Writing</th></tr>${MOCKP.map(p=>`<tr><td>${esc(p.label)}</td><td>${p.date?nice(p.date):''}</td><td class="num">${p.questions.length}</td><td class="num">${p.questions.filter(q=>q.t).length}</td></tr>`).join('')}</table>`:''}</section>
- <section class="sheet"><h2>Start over</h2><p>Deletes every test, streak and achievement in this browser. Needs the password.</p><form id="rsForm" class="row" style="margin-top:12px">${pwField('rspw',{ph:'Password',style:'max-width:260px;flex:1'})}<button class="btn danger" type="submit">Delete all progress</button></form><div class="error" id="rserr"></div></section>
+ <details class="sheet fold"><summary><h2>Papers in this copy</h2></summary><table><tr><th>Paper</th><th>Code</th><th class="num">Questions</th><th class="num">Answer Writing</th></tr>${DATA.papers.map(p=>`<tr><td>${esc(p.label)}</td><td>${esc(p.code)}</td><td class="num">${p.questions.length}</td><td class="num">${p.questions.filter(q=>q.t).length}</td></tr>`).join('')}</table>
+  ${MOCKP.length?`<h3 class="grp-h" style="margin-top:22px">Mock Tests</h3><table><tr><th>Set</th><th>Held</th><th class="num">Questions</th><th class="num">Answer Writing</th></tr>${MOCKP.map(p=>`<tr><td>${esc(p.label)}</td><td>${p.date?nice(p.date):''}</td><td class="num">${p.questions.length}</td><td class="num">${p.questions.filter(q=>q.t).length}</td></tr>`).join('')}</table>`:''}</details>
+ <section class="sheet"><h2>Start over</h2><p>Deletes every test, streak and achievements. Requires Master Password.</p><form id="rsForm" class="row" style="margin-top:12px">${pwField('rspw',{ph:'Master Password',style:'max-width:260px;flex:1'})}<button class="btn danger" type="submit">Delete all progress</button></form><div class="error" id="rserr"></div></section>
  `;
 HOOKS.settings=()=>{
   $('#nameForm').onsubmit=e=>{e.preventDefault();const v=$('#nm').value.trim();if(v){S.setup.name=v;save();plainToast('Name saved.')}};
   $('#pwForm').onsubmit=e=>{e.preventDefault();if(pwHash($('#pw0').value,S.setup.salt)!==S.setup.hash)return $('#pwerr').textContent='The current password doesn’t match.';if($('#pw1').value.length<4)return $('#pwerr').textContent='Use at least 4 characters.';S.setup.hash=pwHash($('#pw1').value,S.setup.salt);save();$('#pwerr').textContent='';plainToast('Password changed.');$('#pwForm').reset()};
-  $('#rsForm').onsubmit=e=>{e.preventDefault();if(pwHash($('#rspw').value,S.setup.salt)!==S.setup.hash)return $('#rserr').textContent='That password doesn’t match.';const keep=S.setup;S=blank();S.setup=keep;S.lastActive=today();save();go('today');plainToast('All progress deleted.')};
+  $('#rsForm').onsubmit=e=>{e.preventDefault();if(pwHash($('#rspw').value,MASTER_SALT)!==MASTER_HASH)return $('#rserr').textContent='That is not the Master Password.';const keep=S.setup,kd=S.disc,kt=S.days[today()];S=blank();S.setup=keep;S.disc=kd;if(kt)S.days[today()]=kt;S.lastActive=today();save();go('today');plainToast('All progress deleted.')};
   $('#imp').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const o=JSON.parse(r.result);if(!o||o.v!==1||!o.setup)throw 0;
     modal(`<h2>Restore this backup?</h2><p>It replaces everything in this browser with the backup from ${esc(nice(o.lastActive)||'an earlier day')}: ${plural((o.tests||[]).length,'test')}.</p><div class="row"><button class="btn" id="doimp">Restore</button><button class="btn quiet" data-act="close">Cancel</button></div>`);
-    $('#doimp').onclick=()=>{S=Object.assign(blank(),o);S.stats=Object.assign(blank().stats,o.stats||{});S.lastActive=today();S.locked=false;save();closeModal();go('today');plainToast('Backup restored.')}}catch(err){$('#imperr').textContent='That file isn’t an Ascension backup.'}};r.readAsText(f)};
+    $('#doimp').onclick=()=>{const kd=S.disc,kt=S.days[today()];S=Object.assign(blank(),o);S.stats=Object.assign(blank().stats,o.stats||{});S.disc=mergeDisc(kd,o.disc);if(kt)S.days[today()]=kt;S.lastActive=today();S.locked=false;discInit();save();closeModal();if(discRun()||activeFreeze()){render();return showFreeze()}go('today');plainToast('Backup restored.')}}catch(err){$('#imperr').textContent='That file isn’t an Ascension backup.'}};r.readAsText(f)};
 };
 ACT.export=()=>{S.lastBackup=today();save();const b=new Blob([JSON.stringify(S)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`ascension-backup-${today()}.json`;document.body.appendChild(a);a.click();a.remove();render()};
 
@@ -2463,8 +2584,9 @@ function boot(){
   if(saveT)saveNow();const L=load();S=(!L.setup&&S&&S.setup)?S:L;
   if(!S.setup)return go('setup');
   migrateAch();migrateXP();
-  const t=today(),gap=S.lastActive?ddiff(S.lastActive,t)-1:0;
-  if(S.locked||(gap>=3&&!S.active)){if(!S.locked){S.locked=true;S.lockGap=gap;save()}view='today';render();return showLock(S.lockGap||gap)}
+  // the visit-based pause is retired; an old pause still on record is lifted, as it no longer means anything
+  discInit();if(S.locked){S.locked=false;delete S.lockGap}
+  discRun();if(activeFreeze()){view='today';render();return showFreeze()}
   start();soonAch();
 }
 /* ===================== comfort & premium layer ===================== */
@@ -2616,7 +2738,7 @@ document.addEventListener('keydown',e=>{
 let lastAct=Date.now(),studyRun=0,awayFor=0;
 ['pointerdown','keydown','wheel','touchstart'].forEach(t=>addEventListener(t,()=>{lastAct=Date.now()},{passive:true}));
 setInterval(()=>{
-  if(!S||!S.setup||S.locked||document.hidden)return;
+  if(!S||!S.setup||activeFreeze()||document.hidden)return;
   // a real test counts while someone touched it in the last 10 minutes (long questions need thinking time); practice, 3 minutes
   const studying=(view==='exam'&&Date.now()-lastAct<600000)||(view==='run'&&Date.now()-lastAct<180000);
   if(!studying){awayFor+=15;if(awayFor>=300)studyRun=0;return}
