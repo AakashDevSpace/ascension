@@ -2,7 +2,7 @@
    - The app itself (page, scripts, data, icons) is stored on install; a new version replaces it (bump VERSION).
    - Question pictures, solution pictures and formula PDFs are stored the first time each is opened.
    - GitHub (progress storage) is never cached: those requests always go to the network. */
-const VERSION = 'ascension-2026-11-24b';
+const VERSION = 'ascension-2026-11-24c';
 const SHELL = ['./', 'index.html', 'ghstore.js', 'manifest.webmanifest', 'papers/mock.js', 'formulas/index.js', 'formulas/practice.js',
   'icons/logo.svg', 'icons/favicon-32.png', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 self.addEventListener('install', e => {

@@ -1,29 +1,23 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <!-- Ascension mark: one smooth arch rising like an "A", with an orb floating free above the peak -->
+  <!-- Ascension mark: a brushed-copper arch rising like an "A", with a finer inner arch for depth -->
   <defs>
-    <linearGradient id="arch" x1="96" y1="0" x2="416" y2="0" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#2f6bff"/>
-      <stop offset=".38" stop-color="#7b5cff"/>
-      <stop offset=".68" stop-color="#ff4f8b"/>
-      <stop offset="1" stop-color="#ffb02e"/>
+    <linearGradient id="copper" x1="110" y1="440" x2="402" y2="150" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7a3d17"/>
+      <stop offset=".35" stop-color="#b8682f"/>
+      <stop offset=".62" stop-color="#e9b47a"/>
+      <stop offset=".8" stop-color="#f7dcb4"/>
+      <stop offset="1" stop-color="#c47a3f"/>
     </linearGradient>
-    <linearGradient id="archShade" x1="0" y1="140" x2="0" y2="440" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#ffffff" stop-opacity=".22"/>
-      <stop offset=".55" stop-color="#ffffff" stop-opacity="0"/>
+    <linearGradient id="sheen" x1="0" y1="150" x2="0" y2="440" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff6e8" stop-opacity=".55"/>
+      <stop offset=".4" stop-color="#fff6e8" stop-opacity="0"/>
     </linearGradient>
-    <radialGradient id="orb" cx=".35" cy=".3" r=".8">
-      <stop offset="0" stop-color="#ffe9a8"/>
-      <stop offset=".45" stop-color="#ff9a3c"/>
-      <stop offset="1" stop-color="#ff4f8b"/>
-    </radialGradient>
-    <radialGradient id="orbGlow" cx=".5" cy=".5" r=".5">
-      <stop offset="0" stop-color="#ff9a3c" stop-opacity=".35"/>
-      <stop offset="1" stop-color="#ff9a3c" stop-opacity="0"/>
-    </radialGradient>
+    <linearGradient id="inner" x1="180" y1="420" x2="332" y2="250" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#b8682f" stop-opacity=".25"/>
+      <stop offset="1" stop-color="#f7dcb4" stop-opacity=".9"/>
+    </linearGradient>
   </defs>
-  <path d="M112 430 C 150 300, 196 168, 256 168 C 316 168, 362 300, 400 430" fill="none" stroke="url(#arch)" stroke-width="86" stroke-linecap="round"/>
-  <path d="M112 430 C 150 300, 196 168, 256 168 C 316 168, 362 300, 400 430" fill="none" stroke="url(#archShade)" stroke-width="86" stroke-linecap="round"/>
-  <circle cx="256" cy="66" r="52" fill="url(#orbGlow)"/>
-  <circle cx="256" cy="66" r="30" fill="url(#orb)"/>
-  <ellipse cx="247" cy="56" rx="10" ry="6" fill="#ffffff" fill-opacity=".65" transform="rotate(-25 247 56)"/>
+  <path d="M120 428 C 158 296, 200 164, 256 164 C 312 164, 354 296, 392 428" fill="none" stroke="url(#copper)" stroke-width="74" stroke-linecap="round"/>
+  <path d="M120 428 C 158 296, 200 164, 256 164 C 312 164, 354 296, 392 428" fill="none" stroke="url(#sheen)" stroke-width="74" stroke-linecap="round"/>
+  <path d="M206 428 C 222 356, 236 300, 256 300 C 276 300, 290 356, 306 428" fill="none" stroke="url(#inner)" stroke-width="22" stroke-linecap="round"/>
 </svg>
