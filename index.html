@@ -1164,6 +1164,8 @@ body[data-mode=gate] #main{max-width:520px}
 .heart.off path{fill:none;stroke:var(--line-2);stroke-width:1.4}
 .heart.on{filter:drop-shadow(0 2px 6px rgba(124,58,237,.28))}
 .hearts-note{font-size:12.5px;color:var(--p-muted)}
+.hearts-note .hn-i{display:inline-flex;align-items:center;gap:5px;vertical-align:middle}.hearts-note .bub{width:13px;height:13px}
+.heart.red path{stroke:none}.heart.red{filter:drop-shadow(0 2px 6px rgba(220,38,38,.32))}
 .heart-warn{font-size:12.5px;font-weight:600;color:#ef4444}
 .month-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(34px,1fr));gap:10px 6px;margin-top:6px}
 .mday{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11.5px;color:var(--p-muted)}
@@ -1542,6 +1544,26 @@ const ACH=[
  {id:'fxsheet',cat:'Formulas',name:'Sheet Cleared',desc:'Get every formula on one sheet right at least once',icon:'scroll',done:fxSheetDone},
  {id:'fx1000',cat:'Formulas',name:'Walking Handbook',desc:'Get 1,000 different formulas right',icon:'book',prog:()=>[fxRight(),1000]},
  {id:'fxall',cat:'Formulas',name:'Formula Master',desc:'Get every formula in the bank right at least once',icon:'crown',prog:()=>[fxRight(),Math.max(1,fxBank())]},
+ {id:'hfull1',cat:'Hearts',name:'Full Bubble',desc:'Have your first full day (both bubbles filled)',icon:'heart',prog:()=>[fullDays(),1]},
+ {id:'hwind',cat:'Hearts',name:'Second Wind',desc:'Have a full day straight after a half or blank day',icon:'bolt',done:secondWind},
+ {id:'hweek',cat:'Hearts',name:'Perfect Week',desc:'Have 7 full days in a row',icon:'torch',prog:()=>[fullRun(),7]},
+ {id:'hfull30',cat:'Hearts',name:'Heart of Gold',desc:'Have 30 full days in total',icon:'coins',prog:()=>[fullDays(),30]},
+ {id:'hfull100',cat:'Hearts',name:'Iron Heart',desc:'Have 100 full days in total',icon:'shield',prog:()=>[fullDays(),100]},
+ {id:'hnored',cat:'Hearts',name:'No Red in Sight',desc:'Finish a calendar month without a single blank day',icon:'check',prog:()=>[heartMonths().filter(x=>!x.blank).length,1]},
+ {id:'hfive',cat:'Hearts',name:'Five Alive',desc:'Finish a calendar month with all five hearts',icon:'gem',prog:()=>[heartMonths().filter(x=>!x.inc).length,1]},
+ {id:'hkeep',cat:'Hearts',name:'Heartkeeper',desc:'Finish three calendar months with all five hearts',icon:'medal',prog:()=>[heartMonths().filter(x=>!x.inc).length,3]},
+ {id:'hmonth',cat:'Hearts',name:'Flawless Month',desc:'Fill both bubbles on every day of a calendar month',icon:'crown',prog:()=>[heartMonths().filter(x=>x.allFull).length,1]},
+ {id:'hthread',cat:'Hearts',name:'Hanging by a Thread',desc:'Have a full day with only one heart left that month',icon:'flame',done:lastHeartFull},
+ {id:'tq1',cat:'Timed questions',name:'On the Clock',desc:'Finish a session with Timed questions on, 10 or more answered',icon:'alarm',prog:()=>[tqTests().length,1]},
+ {id:'tqbank',cat:'Timed questions',name:'Time Banker',desc:'Finish a timed-questions session with 60 seconds or more saved',icon:'coins',done:()=>tqTests().some(t=>t.qt.res>=60)},
+ {id:'tq10',cat:'Timed questions',name:'Metronome',desc:'Finish 10 timed-questions sessions of 10 or more answered',icon:'gear',prog:()=>[tqTests().length,10]},
+ {id:'tqreal',cat:'Timed questions',name:'Clockwork Exam',desc:'Finish a real test with Timed questions on, at least half answered',icon:'clock',prog:()=>[realFull().filter(t=>t.qt).length,1]},
+ {id:'tqnoto',cat:'Timed questions',name:'Never Timed Out',desc:'Finish a timed-questions session of 20 or more questions without a question timing out',icon:'stopwatch',done:()=>tqTests().some(t=>t.qt.n>=20&&!t.qt.to&&t.qt.ans===t.qt.n)},
+ {id:'tqnick',cat:'Timed questions',name:'In the Nick of Time',desc:'Answer every question of a timed session of 20 or more within its own time',icon:'hourglass',done:()=>tqTests().some(t=>t.qt.n>=20&&t.qt.inT===t.qt.n)},
+ {id:'tqquick',cat:'Timed questions',name:'Quick Draw',desc:'Timed questions at 30 seconds or less: 20 or more answered, 70% right',icon:'target',done:()=>tqTests().some(t=>t.qt.b<=30&&t.correct+t.wrong>=20&&t.correct>=0.7*(t.correct+t.wrong))},
+ {id:'tqreal5',cat:'Timed questions',name:'Exam Clockmaster',desc:'Finish 5 real tests with Timed questions on, each at least half answered',icon:'trophy',prog:()=>[realFull().filter(t=>t.qt).length,5]},
+ {id:'tq50',cat:'Timed questions',name:'Tick Tock Titan',desc:'Finish 50 timed-questions sessions of 10 or more answered',icon:'star',prog:()=>[tqTests().length,50]},
+ {id:'tqfull',cat:'Timed questions',name:'Against the Clock',desc:'A timed real test of 180 or more questions: every one answered, none timed out, no deficit',icon:'crown',done:()=>realTests().some(t=>t.qt&&t.qt.n>=180&&t.qt.ans===t.qt.n&&!t.qt.to&&t.qt.res>=0)},
  {id:'back',cat:'Hidden',name:'Welcome Back!',desc:'Return after the system was paused',icon:'key',secret:true,done:()=>S.stats.comeback>0},
  {id:'owl',cat:'Hidden',name:'Night Owl',desc:'Finish a test of 50 or more answered questions after 11 pm',icon:'moon',secret:true,done:()=>S.stats.night>0},
  {id:'lark',cat:'Hidden',name:'Rise and Shine',desc:'Finish a test of 50 or more answered questions that you started before 6 am',icon:'sunrise',secret:true,done:()=>S.stats.early>0},
@@ -1549,15 +1571,28 @@ const ACH=[
  {id:'light',cat:'Hidden',name:'Lightning Round',desc:'Get every answer right in a practice of 10 or more questions, finished in under 5 minutes',icon:'storm',secret:true,done:()=>pracTests().some(t=>t.items.length>=10&&allRight(t)&&t.dur<=300)},
  {id:'s720',cat:'Hidden',name:'Perfection',desc:'Score 720 in a real test',icon:'crown',secret:true,done:()=>bestReal()>=720}
 ];
+// hearts: judged days (S.disc.days), never today
+function fullDays(){return S.disc?Object.values(S.disc.days).filter(x=>x.cls==='full').length:0}
+function fullRun(){if(!S.disc)return 0;let best=0,run=0,prev=null;for(const ds of Object.keys(S.disc.days).sort()){const f=S.disc.days[ds].cls==='full';run=f?(prev&&addDays(prev,1)===ds&&run?run+1:1):0;prev=ds;best=Math.max(best,run)}return best}
+function secondWind(){if(!S.disc)return false;const D=S.disc.days;return Object.keys(D).some(ds=>D[ds].cls==='full'&&D[addDays(ds,-1)]&&['half','blank'].includes(D[addDays(ds,-1)].cls))}
+// calendar months that have ended and were judged from their first day
+function heartMonths(){if(!S.disc)return[];const D=S.disc.days,cur=today().slice(0,7),out=[];
+  for(const m of new Set(Object.keys(D).map(ds=>ds.slice(0,7)))){if(m>=cur)continue;const[y,mo]=m.split('-').map(Number),n=new Date(y,mo,0).getDate(),days=[];
+    for(let d=1;d<=n;d++){const x=D[m+'-'+String(d).padStart(2,'0')];if(x)days.push(x)}
+    if(days.length<n)continue;out.push({m,inc:days.filter(x=>x.cls==='half'||x.cls==='blank').length,blank:days.filter(x=>x.cls==='blank').length,allFull:days.every(x=>x.cls==='full')})}
+  return out}
+function lastHeartFull(){if(!S.disc)return false;const D=S.disc.days;return Object.keys(D).some(ds=>D[ds].cls==='full'&&Object.keys(D).filter(x=>x<ds&&x.slice(0,7)===ds.slice(0,7)&&!S.disc.spent[x]&&(D[x].cls==='half'||D[x].cls==='blank')).length===HEARTS-1)}
+// timed questions: the summary timing.js keeps on each finished session (t.qt)
+const tqTests=()=>S.tests.filter(t=>t.qt&&t.kind!=='review'&&t.correct+t.wrong>=10);
 // XP by difficulty: five tiers, harder achievements are worth more
-const ACH_TIER={easy:['fx1','first','warm','words','trio','second','blank','noopt','tset','back','run10'],
-  moderate:['fxtest','fx50','fx10s','fxfix','hall','noblank','s360','mixed','pb','slate','foe','rev10','st3','c100','longday','pen10','owl','lark','weekend','bio100','chem100','phys100','h10','r5','double','lib'],
-  hard:['fx250','fxflaw','fxsheet','s450','s540','bio90','chem90','phys90','jump','run25','eye','flaw','haul','beat','timed10','chem300','phys300','hunter','slate5','st7','st14','c500','c1000','t25','pen50','h50','secb','weekly','r10','spare','sweep','light'],
-  elite:['fx1000','s600','s650','triple','steady','run50','bio500','rev200','st30','c2500','a5000','t50','pen150','half','h100','every','sharp','marathon'],
-  legendary:['fxall','s700','s720','sky','st60','st100','whole','t100']};
+const ACH_TIER={easy:['fx1','first','warm','words','trio','second','blank','noopt','tset','back','run10','hfull1','tq1'],
+  moderate:['fxtest','fx50','fx10s','fxfix','hall','noblank','s360','mixed','pb','slate','foe','rev10','st3','c100','longday','pen10','owl','lark','weekend','bio100','chem100','phys100','h10','r5','double','lib','hwind','hnored','tqbank','tq10','tqreal'],
+  hard:['fx250','fxflaw','fxsheet','s450','s540','bio90','chem90','phys90','jump','run25','eye','flaw','haul','beat','timed10','chem300','phys300','hunter','slate5','st7','st14','c500','c1000','t25','pen50','h50','secb','weekly','r10','spare','sweep','light','hweek','hfull30','hfive','hthread','tqnoto','tqnick','tqquick'],
+  elite:['fx1000','s600','s650','triple','steady','run50','bio500','rev200','st30','c2500','a5000','t50','pen150','half','h100','every','sharp','hfull100','hkeep','tqreal5','tq50'],
+  legendary:['fxall','s700','s720','sky','st60','st100','whole','t100','marathon','hmonth','tqfull']};
 const TIER_XP={easy:10,moderate:25,hard:50,elite:100,legendary:250},TIER_NAME={easy:'Easy',moderate:'Moderate',hard:'Hard',elite:'Elite',legendary:'Legendary'};
-// achievements worth more than their tier: Sky’s the Limit (a full 720 in a Mixed Real Test)
-const ACH_XP_OVERRIDE={sky:350};
+// achievements worth more than their tier: Rarefied Air (700+) and Sky’s the Limit (a full 720 in a Mixed Real Test)
+const ACH_XP_OVERRIDE={s700:350,sky:500};
 const achTier=a=>Object.keys(ACH_TIER).find(t=>ACH_TIER[t].includes(a.id))||'moderate';
 const achXP=a=>ACH_XP_OVERRIDE[a.id]||TIER_XP[achTier(a)];
 // the daily objective: a session counts toward today’s sheet with this many questions answered
@@ -1783,15 +1818,18 @@ setInterval(()=>{if(!S||!S.setup||!S.disc||activeFreeze())return;if(discRun()){i
 // the five hearts, with the same flowing purple as the logo
 function heartsHTML(){const m=today().slice(0,7),left=activeFreeze()?0:heartsLeft(m),{inc,blank}=monthCount(m);
   const H='M12 20.6s-7.6-4.7-7.6-10.4A4.4 4.4 0 0 1 12 7.4a4.4 4.4 0 0 1 7.6 2.8c0 5.7-7.6 10.4-7.6 10.4Z';
+  // a heart lost to a blank day turns red and stays red; one lost to a half day is an empty outline
+  const red=Math.min(blank.length,HEARTS-left);
   const hearts=Array.from({length:HEARTS},(_,i)=>i<left
     ?`<svg viewBox="2 4 20 18" class="heart on"><path d="${H}" fill="url(#hg)"/></svg>`
+    :i>=HEARTS-red?`<svg viewBox="2 4 20 18" class="heart red"><path d="${H}" fill="url(#hr)"/></svg>`
     :`<svg viewBox="2 4 20 18" class="heart off"><path d="${H}"/></svg>`).join('');
   return`<div class="hearts-box">
    <div class="hearts" role="img" aria-label="${left} of ${HEARTS} hearts left this month">
     <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><linearGradient id="hg" x1="0" y1="0" x2="20" y2="0" gradientUnits="userSpaceOnUse" spreadMethod="repeat">
      <stop offset="0" stop-color="#4c1d95"/><stop offset=".25" stop-color="#7c3aed"/><stop offset=".5" stop-color="#c4b5fd"/><stop offset=".72" stop-color="#e9a8f5"/><stop offset="1" stop-color="#4c1d95"/>
-     <animateTransform attributeName="gradientTransform" type="translate" from="0 0" to="20 0" dur="7s" repeatCount="indefinite"/></linearGradient></defs></svg>${hearts}</div>
-   <span class="hearts-note">${inc.length} of ${HEARTS} incomplete days · ${blank.length} of ${BLANK_MAX} blank days this month</span>${left===1?'<span class="heart-warn" role="alert">Losing this heart will permanently delete all the progress.</span>':''}</div>`}
+     <animateTransform attributeName="gradientTransform" type="translate" from="0 0" to="20 0" dur="7s" repeatCount="indefinite"/></linearGradient><linearGradient id="hr" x1="0" y1="0" x2="20" y2="0" gradientUnits="userSpaceOnUse" spreadMethod="repeat"><stop offset="0" stop-color="#7f1d1d"/><stop offset=".25" stop-color="#dc2626"/><stop offset=".5" stop-color="#fca5a5"/><stop offset=".72" stop-color="#fb7185"/><stop offset="1" stop-color="#7f1d1d"/><animateTransform attributeName="gradientTransform" type="translate" from="0 0" to="20 0" dur="7s" repeatCount="indefinite"/></linearGradient></defs></svg>${hearts}</div>
+   <span class="hearts-note"><span class="hn-i" title="Incomplete days (half or blank) this month">${inc.length} of ${HEARTS} <span class="bub half" aria-label="half days"></span></span> · <span class="hn-i" title="Blank days this month">${blank.length} of ${BLANK_MAX} <span class="bub blank" aria-label="blank days"></span></span></span>${blank.length===BLANK_MAX-1?'<span class="heart-warn" role="alert">One more red heart deletes all the progress permanently.</span>':''}${left===1&&blank.length!==BLANK_MAX-1?'<span class="heart-warn" role="alert">Losing this heart will permanently delete all the progress.</span>':''}</div>`}
 function monthHTML(){const t=today(),m=t.slice(0,7),[y,mo]=m.split('-').map(Number),n=new Date(y,mo,0).getDate(),D=S.disc;let cells='',c={full:0,half:0,blank:0};
   for(let i=1;i<=n;i++){const ds=m+'-'+String(i).padStart(2,'0'),x=D.days[ds];let cls='',lbl='';
     if(ds>t)lbl='still to come';else if(ds===t){const p=dayPct(ds);cls='today '+(p===100?'filled':p===50?'half':'');lbl=`today so far, ${p}%`}
@@ -1813,7 +1851,7 @@ VIEWS.today=()=>{
   return`<header class="page-head dash-head"><div><span class="eyebrow">${new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long'})}</span><h1>${greet}, ${esc(S.setup.name)}</h1><p>${filled===2?CHEERS[[...t].reduce((a,ch)=>a*31+ch.charCodeAt(0)>>>0,7)%CHEERS.length]:filled===1?'One more bubble to fill today.':'Two bubbles to fill today.'}</p></div>${heartsHTML()}</header>${todayTop()}
   <section class="sheet ${b2?'is-done':''}"><h2>Today’s sheet</h2>
    <div class="omr-row"><span class="bub ${b1?'filled':''}"></span><div><b>Answer ${DAILY_Q} questions and ${FX_MIN} formulas</b><span>Today: <b>${Math.min(W.qa,DAILY_Q)} of ${DAILY_Q}</b> questions, <b>${Math.min(W.fa,FX_MIN)} of ${FX_MIN}</b> formulas.</span></div>${b1?'':`<button class="btn" data-act="go" data-v="${W.qa<DAILY_Q?'practice':'formulas'}">${W.qa<DAILY_Q?'Start a practice test':'Practise formulas'}</button>`}</div>
-   <div class="omr-row"><span class="bub ${b2?'filled':''}"></span><div><b>Clear both Reviews</b><span>${!b1?'The wrong and skipped questions and formulas from today’s practice, answered right. Opens after the first bubble.':b2?'Done for today.':[W.qLeft.length?plural(W.qLeft.length,'question')+' in Review':'',W.fLeft.length?plural(W.fLeft.length,'formula')+' in Missed formulas':''].filter(Boolean).join(' and ')+' still to answer right.'}</span></div>${b1&&!b2?(W.qLeft.length?'<button class="btn" data-act="go" data-v="review">Open Review</button>':'<button class="btn" data-act="fxstart" data-scope="miss">Missed formulas</button>'):''}</div>
+   <div class="omr-row"><span class="bub ${b2?'filled':''}"></span><div><b>Clear both Reviews</b><span>${!b1?'Complete review questions from review and formula. Opens after the first bubble.':b2?'Done for today.':[W.qLeft.length?plural(W.qLeft.length,'question')+' in Review':'',W.fLeft.length?plural(W.fLeft.length,'formula')+' in Missed formulas':''].filter(Boolean).join(' and ')+' still to answer right.'}</span></div>${b1&&!b2?(W.qLeft.length?'<button class="btn" data-act="go" data-v="review">Open Review</button>':'<button class="btn" data-act="fxstart" data-scope="miss">Missed formulas</button>'):''}</div>
   </section>
   <div class="split"><section class="sheet"><h2>Streak</h2><p class="streak-line"><b>${st}</b> ${st===1?'day':'days'} in a row${bestStreak()>st?`, best ${bestStreak()}`:''}</p><div class="strip">${strip}</div>
     <p class="muted" style="margin-top:12px;font-size:13px">A filled bubble is a full day, a half-filled one a half day. Both keep the streak; a blank day breaks it.</p></section>
@@ -1974,9 +2012,8 @@ VIEWS.practice=()=>{
   <section class="sheet"><h2>Questions</h2><div class="chips">${[10,20,50,90,180].map(c=>chip('pcount',c,prCfg.count===c,c)).join('')}</div><p class="muted" style="margin-top:10px">${pool.length} questions match. This test will have ${n}.</p></section>
   <section class="sheet"><h2>Answer style</h2><div class="chips">${chip('pmode','mcq',!prCfg.noOpt,'Some Answer Writing')}${chip('pmode','noopt',prCfg.noOpt,'No Options')}</div>
    <p class="muted" style="margin-top:10px">${prCfg.noOpt?'No Options, every question answered in writing.':'Options are shown. About one question in four that can be answered without seeing the options is Answer Writing: you write the answer yourself.'}</p></section>
-  <section class="sheet"><h2>Timer</h2><div class="dp-row">${dpHTML()}<span class="muted" style="font-size:14px">Press the pen to type hours and minutes, up to 5 hours.</span></div>
-   <div class="chips" style="margin-top:14px">${chip('ptime',0,!prCfg.tmin,'No timer')}${TIMES.map(m=>chip('ptime',m,prCfg.tmin===m,m+' min')).join('')}</div>
-   <p class="muted" id="tnote" style="margin-top:10px">${timerNote(n)}</p></section>
+  <section class="sheet" id="ptimer"><h2>Timer</h2><div class="dp-row">${dpHTML()}</div>
+   <div class="chips" style="margin-top:14px">${chip('ptime',0,!prCfg.tmin,'No timer')}${TIMES.map(m=>chip('ptime',m,prCfg.tmin===m,m+' min')).join('')}</div></section>
   <section class="sheet"><h2>Order</h2><div class="row"><button class="btn quiet" data-act="pshuffle">Shuffle</button>${prCfg.inOrder?'':'<button class="btn quiet" data-act="pinorder">Use paper order</button>'}<span class="muted">${prCfg.inOrder?'Paper order. ':'Shuffled. '}Starts with ${prCfg.order.slice(0,6).map(id=>'Q'+QS[id].n).join(', ')}…</span></div>
    <div class="row" style="margin-top:18px"><button class="btn" data-act="pstart" ${n?'':'disabled'}>Start practice</button></div></section>`;
 };
@@ -2571,7 +2608,9 @@ function start(){
 }
 /* one time: achievements unlocked under the old, looser rules are checked again against the saved history.
    Ones whose history can't be recomputed (streaks, review clears, study time, time of day) are left as they are. */
-function migrateXP(){const v=S.xpV||1;if(v>=3)return;if(v<2)Object.keys(S.ach).forEach(id=>{const a=ACH.find(x=>x.id===id);if(a)S.xp=Math.max(0,S.xp+achXP(a)-25)});else if(S.ach.sky)S.xp+=ACH_XP_OVERRIDE.sky-TIER_XP.legendary;S.xpV=3;save()}
+function migrateXP(){const v=S.xpV||1;if(v>=3)return;if(v<2){Object.keys(S.ach).forEach(id=>{const a=ACH.find(x=>x.id===id);if(a)S.xp=Math.max(0,S.xp+achXP(a)-25)});S.xpV=4;return save()} if(S.ach.sky)S.xp+=350-TIER_XP.legendary;S.xpV=3;save()}
+// xpV 4: Rarefied Air 250 to 350, Sky’s the Limit 350 to 500, Marathon Day Elite 100 to Legendary 250
+function migrateXP4(){if((S.xpV||1)>=4)return;if(S.ach.s700)S.xp+=100;if(S.ach.sky)S.xp+=150;if(S.ach.marathon)S.xp+=150;S.xpV=4;save()}
 function migrateAch(){
   if((S.achV||1)>=2)return;
   const keep=new Set(['back','owl','lark','weekend','second','blank','slate','foe','rev10','hunter','rev200','slate5','st3','st7','st14','st30','st60','st100','h10','h50','h100','longday']);
@@ -2583,7 +2622,7 @@ function boot(){
   // site data), keep the profile already in memory instead of reading back an empty one and asking again
   if(saveT)saveNow();const L=load();S=(!L.setup&&S&&S.setup)?S:L;
   if(!S.setup)return go('setup');
-  migrateAch();migrateXP();
+  migrateAch();migrateXP();migrateXP4();
   // the visit-based pause is retired; an old pause still on record is lifted, as it no longer means anything
   discInit();if(S.locked){S.locked=false;delete S.lockGap}
   discRun();if(activeFreeze()){view='today';render();return showFreeze()}
@@ -2772,6 +2811,7 @@ initPremium();
 boot();
 </script>
 <script src="ghstore.js"></script>
+<script src="timing.js"></script>
 <script>if('serviceWorker' in navigator&&/^https?:/.test(location.protocol))addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))</script>
 </body>
 </html>
